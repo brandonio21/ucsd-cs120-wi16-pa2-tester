@@ -161,7 +161,7 @@ int test_proportional_normal(int numprocs) {
 
   /* check if all process are exited */
   if (SchedProc()){
-      Printf("ROUND ROBIN ERR: Not all processes have exited\n");
+      Printf("PROPORTIONAL ERR: Not all processes have exited\n");
       failCounter++;
   }
 
