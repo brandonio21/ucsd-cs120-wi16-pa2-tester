@@ -171,7 +171,7 @@ int test_proportional_hog(int numprocs) {
     counts[SchedProc()]++;
   }
 
-  if (counts[1] != (100 - (numprocs - 1))) {
+  if (counts[1] < (100 - (numprocs - 1))) {
     Printf("PROPORTIONAL ERR: Process 1 should have received %d%% CPU time but got %d%%\n",
         (100 - (numprocs - 1)), counts[1]);
     failCounter++;
