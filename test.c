@@ -155,13 +155,13 @@ int test_proportional_hog(int numprocs) {
   }
 
   if (MyRequestCPUrate(1, 100) == -1) {
-    Printf("PROPORTIONAL ERR: A single process requested 100%% CPU and MyRequestCPURate returned -1\n");
+    Printf("PROPORTIONAL2 ERR: A single process requested 100%% CPU and MyRequestCPURate returned -1\n");
     failCounter++;
   }
 
   for (i = 2; i <= numprocs; i++) {
     if (MyRequestCPUrate(i, 20) != -1) {
-      Printf("PROPORTIONAL ERR: Process %d requested unavailable space and MyRequestCPUrate returned 0\n",
+      Printf("PROPORTIONAL2 ERR: Process %d requested unavailable space and MyRequestCPUrate returned 0\n",
           i);
       failCounter++;
     }
@@ -172,14 +172,14 @@ int test_proportional_hog(int numprocs) {
   }
 
   if (counts[1] < (100 - (numprocs - 1))) {
-    Printf("PROPORTIONAL ERR: Process 1 should have received %d%% CPU time but got %d%%\n",
+    Printf("PROPORTIONAL2 ERR: Process 1 should have received %d%% CPU time but got %d%%\n",
         (100 - (numprocs - 1)), counts[1]);
     failCounter++;
   }
 
   for (i = 2; i <= numprocs; i++) {
     if (counts[i] > 1) {
-      Printf("PROPORTIONAL ERR: Process %d shouldnt have received >1%% CPU time (Received %d%%) " 
+      Printf("PROPORTIONAL2 ERR: Process %d shouldnt have received >1%% CPU time (Received %d%%) " 
           "since process 1 requested 100%%. \n",
           i, counts[i]);
       failCounter++;
@@ -194,7 +194,7 @@ int test_proportional_hog(int numprocs) {
 
   for (i = 2; i <= numprocs; i++) {
     if (!inSlackRange(100 / (numprocs-1), counts[i])) {
-      Printf("PROPORTIONAL ERR: Process %d was expected to receive %d%% CPU (RR after no requests"
+      Printf("PROPORTIONAL2 ERR: Process %d was expected to receive %d%% CPU (RR after no requests"
         " for CPU were made), but received %d%%\n", i, (100/(numprocs-1)), counts[i]);
       failCounter++;
     }
