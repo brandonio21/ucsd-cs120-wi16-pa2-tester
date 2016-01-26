@@ -38,6 +38,11 @@ int test_fifo_normal(int numprocs) {
     EndingProc(proc);
   }
 
+  /* check if all process are exited */
+  if (SchedProc())
+      failCounter++;
+
+
   totalFailCounter += failCounter;
   return failCounter;
 }
@@ -61,6 +66,10 @@ int test_lifo_normal(int numprocs) {
 
     EndingProc(proc);
   }
+
+  /* check if all process are exited */
+  if (SchedProc())
+      failCounter++;
 
   totalFailCounter += failCounter;
   return failCounter;
@@ -93,6 +102,11 @@ int test_rr_normal(int numprocs) {
 
   for (prevproc = 1; prevproc <= numprocs; prevproc++)
     EndingProc(prevproc);
+
+  /* check if all process are exited */
+  if (SchedProc())
+      failCounter++;
+
 
   totalFailCounter += failCounter;
   return failCounter;
@@ -137,6 +151,10 @@ int test_proportional_normal(int numprocs) {
 
   for (i = 1; i <= numprocs; i++)
     EndingProc(i);
+
+  /* check if all process are exited */
+  if (SchedProc())
+      failCounter++;
 
   totalFailCounter += failCounter;
   return failCounter;
