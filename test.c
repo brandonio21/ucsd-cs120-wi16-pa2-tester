@@ -81,6 +81,8 @@ int test_rr_normal(int numprocs) {
   InitSched();
   int prevproc, nextproc, iter, i;
 
+  int trueNext1, trueNext2;
+
   for (prevproc = 1; prevproc <= numprocs; prevproc++) {
     StartingProc(prevproc);
   }
@@ -89,11 +91,11 @@ int test_rr_normal(int numprocs) {
   for (iter = 0; iter < 5; iter++) {
     for (i = 1; i <= numprocs; i++) {
       nextproc = SchedProc();
-      if (((prevproc + 1) % numprocs) + 1 != nextproc &&
-          ((prevproc - 1) < 1 ? numprocs  : prevproc - 1) != nextproc) {
+      trueNext1 = (prevproc + 1) > numprocs ? 1 : prevproc+1;
+      trueNext2 = (prevproc - 1) < 1 ? numprocs : prevproc-1;
+      if (trueNext1 != nextproc && trueNext2 != nextproc){
         Printf("ROUND ROBIN ERR: Encountered process %d\n when expecting %d or %d\n", 
-            nextproc, ((prevproc+1)%numprocs) + 1, 
-            ((prevproc - 1) < 1 ? numprocs  : prevproc - 1));
+            nextproc, trueNext1, trueNext2);
         failCounter++;
       }
       prevproc = nextproc;
@@ -224,7 +226,7 @@ int test_proportional_hog(int numprocs) {
 int test(int (*testerFunction) (int)) {
   int i, failures;
   failures = 0;
-  for (i = 1; i < MAXPROCS; i++) {
+  for (i = MAXPROCS -1; i < MAXPROCS; i++) {
     failures += testerFunction(i);
   }
   return failures;
