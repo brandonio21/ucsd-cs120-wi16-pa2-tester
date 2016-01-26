@@ -39,8 +39,10 @@ int test_fifo_normal(int numprocs) {
   }
 
   /* check if all process are exited */
-  if (SchedProc())
+  if (SchedProc()){
+      Printf("FIFO ERR: Not all processes have exited\n");
       failCounter++;
+  }
 
 
   totalFailCounter += failCounter;
@@ -60,7 +62,7 @@ int test_lifo_normal(int numprocs) {
   for (proc = numprocs; proc > 0; proc--) {
     int next = SchedProc();
     if (next != proc) {
-      Printf("LIFO ERR: Received process %d but expected %d", next, proc);
+      Printf("LIFO ERR: Received process %d but expected %d\n", next, proc);
       failCounter++;
     }
 
@@ -68,8 +70,10 @@ int test_lifo_normal(int numprocs) {
   }
 
   /* check if all process are exited */
-  if (SchedProc())
+  if (SchedProc()){
+      Printf("LIFO ERR: Not all processes have exited\n");
       failCounter++;
+  }
 
   totalFailCounter += failCounter;
   return failCounter;
@@ -106,9 +110,10 @@ int test_rr_normal(int numprocs) {
     EndingProc(prevproc);
 
   /* check if all process are exited */
-  if (SchedProc())
+  if (SchedProc()){
+      Printf("ROUND ROBIN ERR: Not all processes have exited\n");
       failCounter++;
-
+  }
 
   totalFailCounter += failCounter;
   return failCounter;
@@ -155,8 +160,10 @@ int test_proportional_normal(int numprocs) {
     EndingProc(i);
 
   /* check if all process are exited */
-  if (SchedProc())
+  if (SchedProc()){
+      Printf("ROUND ROBIN ERR: Not all processes have exited\n");
       failCounter++;
+  }
 
   totalFailCounter += failCounter;
   return failCounter;
@@ -226,7 +233,7 @@ int test_proportional_hog(int numprocs) {
 int test(int (*testerFunction) (int)) {
   int i, failures;
   failures = 0;
-  for (i = MAXPROCS -1; i < MAXPROCS; i++) {
+  for (i = 1; i <= MAXPROCS; i++) {
     failures += testerFunction(i);
   }
   return failures;
