@@ -300,7 +300,7 @@ int test_havoc(int numprocs){
 	Printf("StartingProc failed\n");
 	errors++;
       }
-      Printf("Started new process %d\n", pid_top);
+      // Printf("Started new process %d\n", pid_top);
       last_event = t;
     }
     
@@ -314,8 +314,8 @@ int test_havoc(int numprocs){
 
       remaining_allocation += allocated[pid_top];
       allocated[pid_top] = 0;
-
-      Printf("Ending process %d\n", pid_top);	    
+      
+      // Printf("Ending process %d\n", pid_top);	    
       
       if(!EndingProc(pid_top--)) {
 	Printf("EndingProc failed\n");
@@ -338,7 +338,7 @@ int test_havoc(int numprocs){
       if(max_allocation) {
 	int new_allocation = 1 + rand() % max_allocation;
 
-	Printf("Changing allocation of %d: %d -> %d\n", pid, allocated[pid], new_allocation);
+	// Printf("Changing allocation of %d: %d -> %d\n", pid, allocated[pid], new_allocation);
       
 	if(MyRequestCPUrate(pid, new_allocation) != 0){
 	  Printf("Rejected valid request (remaining %d)\n", remaining_allocation);
