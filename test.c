@@ -38,13 +38,6 @@ int test_fifo_normal(int numprocs) {
     EndingProc(proc);
   }
 
-  /* check if all process are exited */
-  if (SchedProc()){
-      Printf("FIFO ERR: Not all processes have exited\n");
-      failCounter++;
-  }
-
-
   totalFailCounter += failCounter;
   return failCounter;
 }
@@ -62,17 +55,11 @@ int test_lifo_normal(int numprocs) {
   for (proc = numprocs; proc > 0; proc--) {
     int next = SchedProc();
     if (next != proc) {
-      Printf("LIFO ERR: Received process %d but expected %d\n", next, proc);
+      Printf("LIFO ERR: Received process %d but expected %d", next, proc);
       failCounter++;
     }
 
     EndingProc(proc);
-  }
-
-  /* check if all process are exited */
-  if (SchedProc()){
-      Printf("LIFO ERR: Not all processes have exited\n");
-      failCounter++;
   }
 
   totalFailCounter += failCounter;
@@ -85,8 +72,6 @@ int test_rr_normal(int numprocs) {
   InitSched();
   int prevproc, nextproc, iter, i;
 
-  int trueNext1, trueNext2;
-
   for (prevproc = 1; prevproc <= numprocs; prevproc++) {
     StartingProc(prevproc);
   }
@@ -95,11 +80,11 @@ int test_rr_normal(int numprocs) {
   for (iter = 0; iter < 5; iter++) {
     for (i = 1; i <= numprocs; i++) {
       nextproc = SchedProc();
-      trueNext1 = (prevproc + 1) > numprocs ? 1 : prevproc+1;
-      trueNext2 = (prevproc - 1) < 1 ? numprocs : prevproc-1;
-      if (trueNext1 != nextproc && trueNext2 != nextproc){
+      if (((prevproc + 1) % numprocs) + 1 != nextproc &&
+          ((prevproc - 1) < 1 ? numprocs  : prevproc - 1) != nextproc) {
         Printf("ROUND ROBIN ERR: Encountered process %d\n when expecting %d or %d\n", 
-            nextproc, trueNext1, trueNext2);
+            nextproc, ((prevproc+1)%numprocs) + 1, 
+            ((prevproc - 1) < 1 ? numprocs  : prevproc - 1));
         failCounter++;
       }
       prevproc = nextproc;
@@ -108,12 +93,6 @@ int test_rr_normal(int numprocs) {
 
   for (prevproc = 1; prevproc <= numprocs; prevproc++)
     EndingProc(prevproc);
-
-  /* check if all process are exited */
-  if (SchedProc()){
-      Printf("ROUND ROBIN ERR: Not all processes have exited\n");
-      failCounter++;
-  }
 
   totalFailCounter += failCounter;
   return failCounter;
@@ -127,8 +106,8 @@ int test_proportional_normal(int numprocs) {
   int i, j;
 
 
-  int proportions[numprocs];
-  int counts[numprocs];
+  int proportions[numprocs+1];
+  int counts[numprocs+1];
   for (i = 1; i <= numprocs; i++) {
     StartingProc(i);
     proportions[i] = (rand() % (100 / numprocs)) + 1;
@@ -159,12 +138,6 @@ int test_proportional_normal(int numprocs) {
   for (i = 1; i <= numprocs; i++)
     EndingProc(i);
 
-  /* check if all process are exited */
-  if (SchedProc()){
-      Printf("PROPORTIONAL ERR: Not all processes have exited\n");
-      failCounter++;
-  }
-
   totalFailCounter += failCounter;
   return failCounter;
 }
@@ -174,7 +147,7 @@ int test_proportional_hog(int numprocs) {
   SetSchedPolicy(PROPORTIONAL);
   InitSched();
   int i, iter;
-  int counts[numprocs];
+  int counts[numprocs+1];
 
   for (i = 1; i <= numprocs; i++) {
     StartingProc(i);
@@ -230,10 +203,49 @@ int test_proportional_hog(int numprocs) {
   return failCounter;
 }
 
+int test_proportional_huge(int numprocs) {
+  int failCounter = 0;
+  SetSchedPolicy(PROPORTIONAL);
+  InitSched();
+  int i, iter;
+  int counts[numprocs+1];
+
+  for (i = 1; i <= numprocs; i++) {
+    StartingProc(i);
+    counts[i] = 0;
+  }
+
+  if (MyRequestCPUrate(1, 100) == -1) {
+    Printf("PROPORTIONAL3 ERR: MyRequestCPUrate returned -1 when CPU was available\n");
+    failCounter++;
+  }
+
+  for (iter = 0; iter < 500; iter++) {
+    counts[SchedProc()]++;
+  }
+
+  if (counts[1] < (500 - (numprocs - 1))) {
+    Printf("PROPORTIONAL3 ERR: Process 1 should have received at least %d CPU ticks but got %d\n",
+        (500 - (numprocs - 1)), counts[1]);
+    failCounter++;
+  }
+
+  for (i = 2; i <= numprocs; i++) {
+    if (counts[i] > 1) {
+      Printf("PROPORTIONAL3 ERR: Process %d shouldnt have received >1 CPU tick (Recieved %d ticks) "
+          "since process 1 requested 100%%\n", i, counts[i]);
+      failCounter++;
+    }
+  }
+
+  totalFailCounter += failCounter;
+  return failCounter;
+}
+
 int test(int (*testerFunction) (int)) {
   int i, failures;
   failures = 0;
-  for (i = 1; i <= MAXPROCS; i++) {
+  for (i = 1; i < MAXPROCS; i++) {
     failures += testerFunction(i);
   }
   return failures;
@@ -245,6 +257,7 @@ void Main() {
   Printf("%d roundrobin failures\n", test(&test_rr_normal));
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
+  Printf("%d proportional3 failures\n", test(&test_proportional_huge));
 
   Printf("%d Failures\n", totalFailCounter);
   if (totalFailCounter == 0)
