@@ -303,7 +303,7 @@ int test_havoc(int numprocs){
     if(pid_top < numprocs && !(rand() % 1100)) {
 
       if(!StartingProc(++pid_top)) {
-	Printf("StartingProc failed\n");
+	Printf("HAVOC ERR: StartingProc failed\n");
 	return ++errors;
       }
       // Printf("Started new process %d\n", pid_top);
@@ -314,7 +314,7 @@ int test_havoc(int numprocs){
     if(!(rand() % 50000)) {
       while(pid_top < numprocs){
 	if(!StartingProc(++pid_top)) {
-	  Printf("StartingProc failed\n");
+	  Printf("HAVOC ERR: StartingProc failed\n");
 	  return ++errors;
 	}
 	// Printf("Started new process %d\n", pid_top);
@@ -336,7 +336,7 @@ int test_havoc(int numprocs){
       // Printf("Ending process %d\n", pid_top);	    
       
       if(!EndingProc(pid_top--)) {
-	Printf("EndingProc failed\n");
+	Printf("HAVOC ERR: EndingProc failed\n");
 	return ++errors;
       }
       
@@ -349,7 +349,7 @@ int test_havoc(int numprocs){
       int max_allocation = remaining_allocation + allocated[pid];
 
       if(MyRequestCPUrate(pid, max_allocation + 1) != -1) {	
-	Printf("Failed to reject overallocation request of %d for process %d\n",
+	Printf("HAVOC ERR: Failed to reject overallocation request of %d for process %d\n",
 	       max_allocation+1, pid);
 	return ++errors;
       }
@@ -359,7 +359,7 @@ int test_havoc(int numprocs){
 
 	// Printf("Changing allocation of %d: %d -> %d\n", pid, allocated[pid], new_allocation);
 	if(MyRequestCPUrate(pid, new_allocation) != 0){
-	  Printf("Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
+	  Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
 		 new_allocation, pid, max_allocation);
 	  return ++errors;
 	}
@@ -381,7 +381,7 @@ int test_havoc(int numprocs){
       
       for(int i = 1; i <= numprocs; i++){
 	if(!inSlackRange(allocated[i], totals[i])) {
-	  Printf("Process %d received %d of the last 100 ticks, but requested %d\n", i, totals[i], allocated[i]);
+	  Printf("HAVOC ERR: Process %d received %d of the last 100 ticks, but requested %d\n", i, totals[i], allocated[i]);
 	  errors++;
 	}
       }
