@@ -10,11 +10,15 @@
 #include <time.h>
 #include <stdlib.h>
 
-
+#ifndef SLACK
+#define SLACK 1
+#endif
 
 int totalFailCounter = 0;
 
 int inSlackRange(int expected, int actual) {
+  if(actual >= expected) return 1;
+  if(!SLACK) return 0;
   double slack = expected * 0.10;
   return abs(actual - expected) <= slack;
 }
@@ -204,7 +208,7 @@ int test_proportional_hog(int numprocs) {
 
   for (i = 2; i <= numprocs; i++) {
     if (counts[i] > 1) {
-      Printf("PROPORTIONAL2 ERR: Process %d shouldnt have received >1%% CPU time (Received %d%%) " 
+      Printf("PROPORTIONAL2 ERR: Process %d shouldn't have received >1%% CPU time (Received %d%%) " 
           "since process 1 requested 100%%. \n",
           i, counts[i]);
       failCounter++;
@@ -282,6 +286,105 @@ int test_proportional_huge(int numprocs) {
   return failCounter;
 }
 
+int test_havoc(int numprocs){
+  int errors = 0;
+  SetSchedPolicy(PROPORTIONAL);
+  InitSched();
+  int decision[100];
+  int pid_top = 0;
+  int last_event = 0;
+  int* allocated = calloc(numprocs + 1, 4);
+  int remaining_allocation = 100;
+  
+  srand(0);
+  
+  for(int t = 0; t < 1000000; t++) {
+    // Start a new process?
+    if(pid_top < numprocs && !(rand() % 900)) {
+
+      if(!StartingProc(++pid_top)) {
+	Printf("StartingProc failed\n");
+	errors++;
+      }
+      // Printf("Started new process %d\n", pid_top);
+      last_event = t;
+    }
+    
+    // End the last process?
+    // TOOD: with more bookkeeping we could end a random process   
+    if(pid_top && !(rand() % 1000)) {
+
+      for(int i = 0; i < 100; i++){
+	if(decision[i] == pid_top) decision[i] = 0;
+      }
+
+      remaining_allocation += allocated[pid_top];
+      allocated[pid_top] = 0;
+      
+      // Printf("Ending process %d\n", pid_top);	    
+      
+      if(!EndingProc(pid_top--)) {
+	Printf("EndingProc failed\n");
+	errors++;
+      }
+      
+      last_event = t;
+    }
+
+    // Change the priority of a random process?
+    if(pid_top && !(rand() % 500)) {
+      int pid = rand() % pid_top + 1;
+      int max_allocation = remaining_allocation + allocated[pid];
+
+      if(MyRequestCPUrate(pid, max_allocation + 1) != -1) {	
+	Printf("Didn't reject overallocation request of %d\n", max_allocation+1);
+	errors++;
+      }
+
+      if(max_allocation) {
+	int new_allocation = 1 + rand() % max_allocation;
+
+	// Printf("Changing allocation of %d: %d -> %d\n", pid, allocated[pid], new_allocation);
+      
+	if(MyRequestCPUrate(pid, new_allocation) != 0){
+	  Printf("Rejected valid request (remaining %d)\n", remaining_allocation);
+	  errors++;
+	}
+      
+	remaining_allocation += allocated[pid] - new_allocation;
+	allocated[pid] = new_allocation;
+	last_event = t;
+      }
+    }
+
+    // if we've had more than 100 ticks since the last event,
+    // validate the last 100 decisions
+    if(t - last_event >= 100) {
+      int* totals = calloc(4, numprocs+1);
+
+      // total the ticks that each process received
+      for(int i = 0; i < 100; i++)
+	totals[decision[i]]++;
+      
+      for(int i = 1; i <= numprocs; i++){
+	if(!inSlackRange(allocated[i], totals[i])) {
+	  Printf("Process %d received %d ticks; expected at least %d\n", i, totals[i], allocated[i]);
+	  errors++;
+	}
+      }
+
+      free(totals);
+    }
+
+    decision[t % 100] = SchedProc();
+  }
+
+  free(allocated);
+    
+  totalFailCounter += errors;
+  return errors;
+}
+
 int test(int (*testerFunction) (int)) {
   int i, failures;
   failures = 0;
@@ -298,6 +401,7 @@ void Main() {
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
+  Printf("%d havoc failures\n", test_havoc(MAXPROCS));
 
   Printf("%d Failures\n", totalFailCounter);
   if (totalFailCounter == 0)
