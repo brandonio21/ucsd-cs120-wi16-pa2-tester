@@ -86,31 +86,43 @@ int test_rr_normal(int numprocs) {
   int failCounter = 0;
   SetSchedPolicy(ROUNDROBIN);
   InitSched();
-  int prevproc, nextproc, iter, i;
-  int trueNext1, trueNext2;
 
-  for (prevproc = 1; prevproc <= numprocs; prevproc++) {
-    StartingProc(prevproc);
+  for (int i = 1; i <= numprocs; i++) {
+    StartingProc(i);
   }
 
-  prevproc = SchedProc();
-  for (iter = 0; iter < 5; iter++) {
-    for (i = 1; i <= numprocs; i++) {
-      nextproc = SchedProc();
-      trueNext1 = (prevproc + 1) > numprocs ? 1 : prevproc + 1;
-      trueNext2 = (prevproc - 1) < 1 ? numprocs : prevproc - 1;
-      if (trueNext1 != nextproc && trueNext2 != nextproc) {
-        Printf("ROUND ROBIN ERR: Encountered process %d\n when expecting %d or %d\n", 
-            nextproc, trueNext1, trueNext2);
-        failCounter++;
+  int* decisions = calloc(numprocs, 4);
+  
+  for(int t = 0; t < numprocs * 5; t++) {
+
+    // have we made at least numprocs decisions yet?
+    if(t >= numprocs){
+      int* counts = calloc(numprocs + 1, 4);
+
+      for(int i = 0; i < numprocs; i++) {
+	counts[decisions[i]]++;
       }
-      prevproc = nextproc;
+
+      for(int i = 1; i < numprocs; i++) {
+	if(counts[i] != 1){
+	  Printf("ROUND ROBIN ERR: Process %d received %d ticks in one round, expecting 1\n",
+		 i, counts[i]);
+	  failCounter++;
+	}
+      }
+      
+      free(counts);    
     }
+    
+    decisions[t % numprocs] = SchedProc();
   }
 
-  for (prevproc = 1; prevproc <= numprocs; prevproc++)
-    EndingProc(prevproc);
+  free(decisions);
 
+  for (int i = 1; i <= numprocs; i++) {
+    EndingProc(i);
+  }
+    
   /* check if all process are exited */
   if (SchedProc()) {
     Printf("ROUND ROBIN ERR: Not all processes have exited\n");
