@@ -9,6 +9,7 @@
 #include "sys.h"
 #include <time.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef SLACK
 #define SLACK 1
@@ -394,14 +395,15 @@ int test(int (*testerFunction) (int)) {
   return failures;
 }
 
-void Main() {
+void Main(int argc, char** argv) {
   Printf("%d fifo failures\n", test(&test_fifo_normal));
   Printf("%d lifo failures\n", test(&test_lifo_normal));
   Printf("%d roundrobin failures\n", test(&test_rr_normal));
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
-  Printf("%d havoc failures\n", test_havoc(MAXPROCS));
+  if (argc > 1 && strcmp(argv[1], "--havok") == 0)
+    Printf("%d havoc failures\n", test_havoc(MAXPROCS));
 
   Printf("%d Failures\n", totalFailCounter);
   if (totalFailCounter == 0)
