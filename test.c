@@ -10,9 +10,15 @@
 #include <time.h>
 #include <stdlib.h>
 
+#ifndef SLACK
+#define SLACK 1
+#endif
+
 int totalFailCounter = 0;
 
 int inSlackRange(int expected, int actual) {
+  if(actual >= expected) return 1;
+  if(!SLACK) return 0;
   double slack = expected * 0.10;
   return abs(actual - expected) <= slack;
 }
@@ -361,7 +367,7 @@ int test_havoc(int numprocs){
 	totals[decision[i]]++;
       
       for(int i = 1; i <= numprocs; i++){
-	if(totals[i] < allocated[i]){
+	if(!inSlackRange(allocated[i], totals[i])) {
 	  Printf("Process %d received %d ticks; expected at least %d\n", i, totals[i], allocated[i]);
 	  errors++;
 	}
