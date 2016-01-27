@@ -87,31 +87,43 @@ int test_rr_normal(int numprocs) {
   int failCounter = 0;
   SetSchedPolicy(ROUNDROBIN);
   InitSched();
-  int prevproc, nextproc, iter, i;
-  int trueNext1, trueNext2;
 
-  for (prevproc = 1; prevproc <= numprocs; prevproc++) {
-    StartingProc(prevproc);
+  for (int i = 1; i <= numprocs; i++) {
+    StartingProc(i);
   }
 
-  prevproc = SchedProc();
-  for (iter = 0; iter < 5; iter++) {
-    for (i = 1; i <= numprocs; i++) {
-      nextproc = SchedProc();
-      trueNext1 = (prevproc + 1) > numprocs ? 1 : prevproc + 1;
-      trueNext2 = (prevproc - 1) < 1 ? numprocs : prevproc - 1;
-      if (trueNext1 != nextproc && trueNext2 != nextproc) {
-        Printf("ROUND ROBIN ERR: Encountered process %d\n when expecting %d or %d\n", 
-            nextproc, trueNext1, trueNext2);
-        failCounter++;
+  int* decisions = calloc(numprocs, 4);
+  
+  for(int t = 0; t < numprocs * 5; t++) {
+
+    // have we made at least numprocs decisions yet?
+    if(t >= numprocs){
+      int* counts = calloc(numprocs + 1, 4);
+
+      for(int i = 0; i < numprocs; i++) {
+	counts[decisions[i]]++;
       }
-      prevproc = nextproc;
+
+      for(int i = 1; i < numprocs; i++) {
+	if(counts[i] != 1){
+	  Printf("ROUND ROBIN ERR: Process %d received %d ticks in one round, expecting 1\n",
+		 i, counts[i]);
+	  failCounter++;
+	}
+      }
+      
+      free(counts);    
     }
+    
+    decisions[t % numprocs] = SchedProc();
   }
 
-  for (prevproc = 1; prevproc <= numprocs; prevproc++)
-    EndingProc(prevproc);
+  free(decisions);
 
+  for (int i = 1; i <= numprocs; i++) {
+    EndingProc(i);
+  }
+    
   /* check if all process are exited */
   if (SchedProc()) {
     Printf("ROUND ROBIN ERR: Not all processes have exited\n");
@@ -297,18 +309,30 @@ int test_havoc(int numprocs){
   int* allocated = calloc(numprocs + 1, 4);
   int remaining_allocation = 100;
   
-  srand(0);
+  srand(120);
   
   for(int t = 0; t < 1000000; t++) {
     // Start a new process?
-    if(pid_top < numprocs && !(rand() % 900)) {
+    if(pid_top < numprocs && !(rand() % 1100)) {
 
       if(!StartingProc(++pid_top)) {
-	Printf("StartingProc failed\n");
-	errors++;
+	Printf("HAVOC ERR: StartingProc failed\n");
+	return ++errors;
       }
       // Printf("Started new process %d\n", pid_top);
       last_event = t;
+    }
+
+    // Start as many new processes as possible?
+    if(!(rand() % 50000)) {
+      while(pid_top < numprocs){
+	if(!StartingProc(++pid_top)) {
+	  Printf("HAVOC ERR: StartingProc failed\n");
+	  return ++errors;
+	}
+	// Printf("Started new process %d\n", pid_top);
+	last_event = t;
+      }
     }
     
     // End the last process?
@@ -325,8 +349,8 @@ int test_havoc(int numprocs){
       // Printf("Ending process %d\n", pid_top);	    
       
       if(!EndingProc(pid_top--)) {
-	Printf("EndingProc failed\n");
-	errors++;
+	Printf("HAVOC ERR: EndingProc failed\n");
+	return ++errors;
       }
       
       last_event = t;
@@ -338,18 +362,19 @@ int test_havoc(int numprocs){
       int max_allocation = remaining_allocation + allocated[pid];
 
       if(MyRequestCPUrate(pid, max_allocation + 1) != -1) {	
-	Printf("Didn't reject overallocation request of %d\n", max_allocation+1);
-	errors++;
+	Printf("HAVOC ERR: Failed to reject overallocation request of %d for process %d\n",
+	       max_allocation+1, pid);
+	return ++errors;
       }
 
       if(max_allocation) {
 	int new_allocation = 1 + rand() % max_allocation;
 
 	// Printf("Changing allocation of %d: %d -> %d\n", pid, allocated[pid], new_allocation);
-      
 	if(MyRequestCPUrate(pid, new_allocation) != 0){
-	  Printf("Rejected valid request (remaining %d)\n", remaining_allocation);
-	  errors++;
+	  Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
+		 new_allocation, pid, max_allocation);
+	  return ++errors;
 	}
       
 	remaining_allocation += allocated[pid] - new_allocation;
@@ -369,7 +394,7 @@ int test_havoc(int numprocs){
       
       for(int i = 1; i <= numprocs; i++){
 	if(!inSlackRange(allocated[i], totals[i])) {
-	  Printf("Process %d received %d ticks; expected at least %d\n", i, totals[i], allocated[i]);
+	  Printf("HAVOC ERR: Process %d received %d of the last 100 ticks, but requested %d\n", i, totals[i], allocated[i]);
 	  errors++;
 	}
       }
