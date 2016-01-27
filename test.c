@@ -372,10 +372,14 @@ int test_havoc(int numprocs){
 	  errors++;
 	}
       }
+
+      free(totals);
     }
 
     decision[t % 100] = SchedProc();
   }
+
+  free(allocated);
     
   totalFailCounter += errors;
   return errors;
