@@ -31,7 +31,7 @@ int test_fifo_normal(int numprocs) {
   for (proc = 1; proc <= numprocs; proc++) {
     int next = SchedProc();
     if (next != proc) {
-      Printf("FIFO ERR: Received process %d but expected %d", next, proc);
+      Printf("FIFO ERR: Received process %d but expected %d\n", next, proc);
       failCounter++;
     }
 
