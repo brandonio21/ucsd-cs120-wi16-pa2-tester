@@ -20,8 +20,8 @@ int totalFailCounter = 0;
 int inSlackRange(int expected, int actual) {
   if(actual >= expected) return 1;
   if(!SLACK) return 0;
-  double slack = expected * 0.10;
-  return abs(actual - expected) <= slack;
+  int minimumAllowed = expected * 0.9;
+  return actual >= minimumAllowed;
 }
 
 int test_fifo_normal(int numprocs) {
