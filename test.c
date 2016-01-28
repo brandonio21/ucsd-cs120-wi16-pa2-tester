@@ -486,6 +486,9 @@ int test_havoc(){
     decision[t % 100] = get_next_sched();
   }
 
+  int pid;
+  while(pid = get_random_active()) EndingProc(pid);
+
   totalFailCounter += errors;
   return errors;
 }
