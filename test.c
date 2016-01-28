@@ -105,7 +105,7 @@ int test_rr_normal(int numprocs) {
   }
 
   int* decisions = calloc(numprocs, 4);
-  
+
   for(int t = 0; t < numprocs * 5; t++) {
 
     // have we made at least numprocs decisions yet?
@@ -113,20 +113,20 @@ int test_rr_normal(int numprocs) {
       int* counts = calloc(numprocs + 1, 4);
 
       for(int i = 0; i < numprocs; i++) {
-	counts[decisions[i]]++;
+        counts[decisions[i]]++;
       }
 
       for(int i = 1; i < numprocs; i++) {
-	if(counts[i] != 1){
-	  Printf("ROUND ROBIN ERR: Process %d received %d ticks in one round, expecting 1\n",
-		 i, counts[i]);
-	  failCounter++;
-	}
+        if(counts[i] != 1){
+          Printf("ROUND ROBIN ERR: Process %d received %d ticks in one round, expecting 1\n",
+                 i, counts[i]);
+          failCounter++;
+        }
       }
-      
-      free(counts);    
+
+      free(counts);
     }
-    
+
     decisions[t % numprocs] = get_next_sched();
   }
 
@@ -135,7 +135,7 @@ int test_rr_normal(int numprocs) {
   for (int i = 1; i <= numprocs; i++) {
     EndingProc(i);
   }
-    
+
   /* check if all process are exited */
   if (get_next_sched()) {
     Printf("ROUND ROBIN ERR: Not all processes have exited\n");
@@ -147,7 +147,6 @@ int test_rr_normal(int numprocs) {
 }
 
 int test_proportional_normal(int numprocs) {
-  srand(time(NULL));
   int failCounter = 0;
   SetSchedPolicy(PROPORTIONAL);
   InitSched();
@@ -166,7 +165,7 @@ int test_proportional_normal(int numprocs) {
     if (MyRequestCPUrate(i, proportions[i]) == -1) {
       failCounter++;
       Printf("PROPORTIONAL ERR: Process requested %d%% CPU and MyRequestCPUrate wrongly returned -1\n",
-          proportions[i]);
+             proportions[i]);
     }
   }
 
@@ -175,10 +174,10 @@ int test_proportional_normal(int numprocs) {
   }
 
   for (i = 1; i <= numprocs; i++) {
-    if (!inSlackRange(proportions[i], counts[i]) && 
+    if (!inSlackRange(proportions[i], counts[i]) &&
         counts[i] < proportions[i]) {
-      Printf("PROPORTIONAL ERR: %d requested %d%% but received %d\n", i, 
-          proportions[i], counts[i]);
+      Printf("PROPORTIONAL ERR: %d requested %d%% but received %d\n", i,
+             proportions[i], counts[i]);
       failCounter++;
     }
   }
@@ -216,7 +215,7 @@ int test_proportional_hog(int numprocs) {
   for (i = 2; i <= numprocs; i++) {
     if (MyRequestCPUrate(i, 20) != -1) {
       Printf("PROPORTIONAL2 ERR: Process %d requested unavailable space and MyRequestCPUrate returned 0\n",
-          i);
+             i);
       failCounter++;
     }
   }
@@ -227,15 +226,15 @@ int test_proportional_hog(int numprocs) {
 
   if (counts[1] < (100 - (numprocs - 1))) {
     Printf("PROPORTIONAL2 ERR: Process 1 should have received %d%% CPU time but got %d%%\n",
-        (100 - (numprocs - 1)), counts[1]);
+           (100 - (numprocs - 1)), counts[1]);
     failCounter++;
   }
 
   for (i = 2; i <= numprocs; i++) {
     if (counts[i] > 1) {
-      Printf("PROPORTIONAL2 ERR: Process %d shouldn't have received >1%% CPU time (Received %d%%) " 
-          "since process 1 requested 100%%. \n",
-          i, counts[i]);
+      Printf("PROPORTIONAL2 ERR: Process %d shouldn't have received >1%% CPU time (Received %d%%) "
+             "since process 1 requested 100%%. \n",
+             i, counts[i]);
       failCounter++;
     }
     counts[i] = 0;
@@ -249,7 +248,7 @@ int test_proportional_hog(int numprocs) {
   for (i = 2; i <= numprocs; i++) {
     if (!inSlackRange(100 / (numprocs-1), counts[i])) {
       Printf("PROPORTIONAL2 ERR: Process %d was expected to receive %d%% CPU (RR after no requests"
-        " for CPU were made), but received %d%%\n", i, (100/(numprocs-1)), counts[i]);
+             " for CPU were made), but received %d%%\n", i, (100/(numprocs-1)), counts[i]);
       failCounter++;
     }
     EndingProc(i);
@@ -287,14 +286,14 @@ int test_proportional_huge(int numprocs) {
 
   if (counts[1] < (500 - (numprocs - 1))) {
     Printf("PROPORTIONAL3 ERR: Process 1 should have received at least %d CPU ticks but got %d\n",
-        (500 - (numprocs - 1)), counts[1]);
+           (500 - (numprocs - 1)), counts[1]);
     failCounter++;
   }
 
   for (i = 2; i <= numprocs; i++) {
     if (counts[i] > 1) {
       Printf("PROPORTIONAL3 ERR: Process %d shouldnt have received >1 CPU tick (Recieved %d ticks) "
-          "since process 1 requested 100%%\n", i, counts[i]);
+             "since process 1 requested 100%%\n", i, counts[i]);
       failCounter++;
     }
   }
@@ -360,17 +359,17 @@ static int end_process(int pid){
   for(int i = 0; i < 100; i++){
     if(decision[i] == pid) decision[i] = 0;
   }
-  
+
   if(!EndingProc(pid)) {
     Printf("HAVOC ERR: EndingProc failed\n");
     return 1;
   }
-      
+
   remaining_allocation += allocated[pid];
   active_procs--;
   active[pid] = 0;
   allocated[pid] = 0;
-  
+
   //Printf("Ended process %d\n", pid);
   return 0;
 }
@@ -379,13 +378,12 @@ int test_havoc(){
   int errors = 0;
   int last_event = 0;
   int totals[MAXPROCS+1];
-  
+
   SetSchedPolicy(PROPORTIONAL);
   InitSched();
 
   memset(allocated, 0, sizeof(int) * (MAXPROCS + 1));
   memset(active, 0, sizeof(int) * (MAXPROCS + 1));
-  srand(120);
   
   for(int t = 0; t < 1000000; t++) {
     // Start a new process?
@@ -397,11 +395,11 @@ int test_havoc(){
     // Start as many new processes as possible?
     if(!(rand() % 50000)) {
       while(active_procs < MAXPROCS) {
-	if(start_process(get_random_inactive())) return ++errors;
+        if(start_process(get_random_inactive())) return ++errors;
       }
       last_event = t;
     }
-    
+
     // End a random process?
     if(active_procs && !(rand() % 1000)) {
       if(end_process(get_random_active())) return ++errors;
@@ -413,26 +411,26 @@ int test_havoc(){
       int pid = get_random_active();
       int max_allocation = remaining_allocation + allocated[pid];
 
-      if(MyRequestCPUrate(pid, max_allocation + 1) != -1) {	
-	Printf("HAVOC ERR: Failed to reject overallocation request of %d for process %d\n",
-	       max_allocation + 1, pid);
-	return ++errors;
+      if(MyRequestCPUrate(pid, max_allocation + 1) != -1) {
+        Printf("HAVOC ERR: Failed to reject overallocation request of %d for process %d\n",
+               max_allocation + 1, pid);
+        return ++errors;
       }
 
       if(max_allocation) {
-	int new_allocation = 1 + rand() % max_allocation;
+        int new_allocation = 1 + rand() % max_allocation;
 
-	// Printf("Changing allocation of %d: %d -> %d\n", pid, allocated[pid], new_allocation);
-	
-	if(MyRequestCPUrate(pid, new_allocation) != 0){
-	  Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
-		 new_allocation, pid, max_allocation);
-	  return ++errors;
-	}
-      
-	remaining_allocation += allocated[pid] - new_allocation;
-	allocated[pid] = new_allocation;
-	last_event = t;
+        // Printf("Changing allocation of %d: %d -> %d\n", pid, allocated[pid], new_allocation);
+
+        if(MyRequestCPUrate(pid, new_allocation) != 0){
+          Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
+                 new_allocation, pid, max_allocation);
+          return ++errors;
+        }
+
+        remaining_allocation += allocated[pid] - new_allocation;
+        allocated[pid] = new_allocation;
+        last_event = t;
       }
     }
 
@@ -443,32 +441,32 @@ int test_havoc(){
 
       // total the ticks that each process received
       for(int i = 0; i < 100; i++)
-	totals[decision[i]]++;
+        totals[decision[i]]++;
 
       // of the leftover processes (which did not request a specific CPU rate),
       // the minimum and maximum number of ticks allocated
       int leftover_min = 100, leftover_max = 0;
       int min_leftover, max_leftover;
-      
-      for(int i = 1; i <= MAXPROCS; i++){
-	if(!active[i]) continue;
-	if(!inSlackRange(allocated[i], totals[i])) {
-	  Printf("HAVOC ERR: Process %d received %d of the last 100 ticks, but requested %d\n", i, totals[i], allocated[i]);
-	  errors++;
-	}
 
-	// if a process didn't make any request, it's a leftover process
-	if(!allocated[i]) {
-	  if(totals[i] < leftover_min) {
-	    leftover_min = totals[i];
-	    min_leftover = i;
-	  }
-	  
-	  if(totals[i] > leftover_max) {
-	    leftover_max = totals[i];
-	    max_leftover = i;
-	  }
-	}
+      for(int i = 1; i <= MAXPROCS; i++){
+        if(!active[i]) continue;
+        if(!inSlackRange(allocated[i], totals[i])) {
+          Printf("HAVOC ERR: Process %d received %d of the last 100 ticks, but requested %d\n", i, totals[i], allocated[i]);
+          errors++;
+        }
+
+        // if a process didn't make any request, it's a leftover process
+        if(!allocated[i]) {
+          if(totals[i] < leftover_min) {
+            leftover_min = totals[i];
+            min_leftover = i;
+          }
+
+          if(totals[i] > leftover_max) {
+            leftover_max = totals[i];
+            max_leftover = i;
+          }
+        }
       }
 
       // If there was at least one leftover process, check that
@@ -478,10 +476,10 @@ int test_havoc(){
 
       // This is the closest we can get to verifying that the processes
       // are scheduled equally, given our 100-tick ring buffer
-      
+
       if(leftover_max && leftover_max - leftover_min > 1) {
-	Printf("HAVOC ERR: Leftover processes %d and %d were not scheduled equally (received %d and %d ticks respectively)\n",
-	       min_leftover, max_leftover, leftover_min, leftover_max);
+        Printf("HAVOC ERR: Leftover processes %d and %d were not scheduled equally (received %d and %d ticks respectively)\n",
+               min_leftover, max_leftover, leftover_min, leftover_max);
       }
     }
 
@@ -502,6 +500,7 @@ int test(int (*testerFunction) (int)) {
 }
 
 void Main(int argc, char** argv) {
+  srand(120 * 0xDEAD);
   Printf("%d fifo failures\n", test(&test_fifo_normal));
   Printf("%d lifo failures\n", test(&test_lifo_normal));
   Printf("%d roundrobin failures\n", test(&test_rr_normal));
