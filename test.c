@@ -15,6 +15,10 @@
 #define SLACK 1
 #endif
 
+#ifndef LOGIC_IN_HANDLETIMERINTR
+#define LOGIC_IN_HANDLETIMERINTR 0
+#endif
+
 int totalFailCounter = 0;
 
 int inSlackRange(int expected, int actual) {
@@ -23,6 +27,14 @@ int inSlackRange(int expected, int actual) {
   int minimumAllowed = expected * 0.9;
   return actual >= minimumAllowed;
 }
+
+int get_next_sched() {
+  if (LOGIC_IN_HANDLETIMERINTR) {
+    HandleTimerIntr();
+  }
+  return SchedProc();
+}
+
 
 int test_fifo_normal(int numprocs) {
   int failCounter = 0;
@@ -34,7 +46,7 @@ int test_fifo_normal(int numprocs) {
   }
 
   for (proc = 1; proc <= numprocs; proc++) {
-    int next = SchedProc();
+    int next = get_next_sched();
     if (next != proc) {
       Printf("FIFO ERR: Received process %d but expected %d\n", next, proc);
       failCounter++;
@@ -44,7 +56,7 @@ int test_fifo_normal(int numprocs) {
   }
 
   /* check if all process are exited */
-  if (SchedProc()) {
+  if (get_next_sched()) {
     Printf("FIFO ERR: Not all processes have exited\n");
     failCounter++;
   }
@@ -64,7 +76,7 @@ int test_lifo_normal(int numprocs) {
   }
 
   for (proc = numprocs; proc > 0; proc--) {
-    int next = SchedProc();
+    int next = get_next_sched();
     if (next != proc) {
       Printf("LIFO ERR: Received process %d but expected %d\n", next, proc);
       failCounter++;
@@ -74,7 +86,7 @@ int test_lifo_normal(int numprocs) {
   }
 
   /* check if all process are exited */
-  if (SchedProc()) {
+  if (get_next_sched()) {
     Printf("LIFO ERR: Not all processes have exited\n");
     failCounter++;
   }
@@ -115,7 +127,7 @@ int test_rr_normal(int numprocs) {
       free(counts);    
     }
     
-    decisions[t % numprocs] = SchedProc();
+    decisions[t % numprocs] = get_next_sched();
   }
 
   free(decisions);
@@ -125,7 +137,7 @@ int test_rr_normal(int numprocs) {
   }
     
   /* check if all process are exited */
-  if (SchedProc()) {
+  if (get_next_sched()) {
     Printf("ROUND ROBIN ERR: Not all processes have exited\n");
     failCounter++;
   }
@@ -159,7 +171,7 @@ int test_proportional_normal(int numprocs) {
   }
 
   for (i = 0; i < 100; i++) {
-    counts[SchedProc()]++;
+    counts[get_next_sched()]++;
   }
 
   for (i = 1; i <= numprocs; i++) {
@@ -175,7 +187,7 @@ int test_proportional_normal(int numprocs) {
     EndingProc(i);
 
   /* check if all process are exited */
-  if (SchedProc()) {
+  if (get_next_sched()) {
     Printf("PROPORTIONAL ERR: Not all processes have exited\n");
     failCounter++;
   }
@@ -210,7 +222,7 @@ int test_proportional_hog(int numprocs) {
   }
 
   for (iter = 0; iter < 100; iter++) {
-    counts[SchedProc()]++;
+    counts[get_next_sched()]++;
   }
 
   if (counts[1] < (100 - (numprocs - 1))) {
@@ -231,7 +243,7 @@ int test_proportional_hog(int numprocs) {
 
   EndingProc(1);
   for (iter = 0; iter < 100; iter++) {
-    counts[SchedProc()]++;
+    counts[get_next_sched()]++;
   }
 
   for (i = 2; i <= numprocs; i++) {
@@ -243,7 +255,7 @@ int test_proportional_hog(int numprocs) {
     EndingProc(i);
   }
 
-  if (SchedProc()) {
+  if (get_next_sched()) {
     Printf("PROPORTIONAL2 ERR: Not all processes have exited\n");
     failCounter++;
   }
@@ -270,7 +282,7 @@ int test_proportional_huge(int numprocs) {
   }
 
   for (iter = 0; iter < 500; iter++) {
-    counts[SchedProc()]++;
+    counts[get_next_sched()]++;
   }
 
   if (counts[1] < (500 - (numprocs - 1))) {
@@ -290,7 +302,7 @@ int test_proportional_huge(int numprocs) {
   for (i = 1; i <= numprocs; i++)
     EndingProc(i);
 
-  if (SchedProc()) {
+  if (get_next_sched()) {
     Printf("PROPORTIONAL3 ERR: Not all processes have exited\n");
     failCounter++;
   }
@@ -402,7 +414,7 @@ int test_havoc(int numprocs){
       free(totals);
     }
 
-    decision[t % 100] = SchedProc();
+    decision[t % 100] = get_next_sched();
   }
 
   free(allocated);
