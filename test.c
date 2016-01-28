@@ -311,9 +311,15 @@ int test_proportional_huge(int numprocs) {
 }
 
 // TODO: move all of havoc into a new C file
-static int active[MAXPROCS+1];
+static struct{
+  int active;
+  int start_tick;
+  int tick_count;
+  int request;
+} processes[MAXPROCS+1];
+
+static int t = 0;
 static int active_procs = 0;
-static int allocated[MAXPROCS+1];
 static int last_event = 0;
 static int decision[100];
 static int remaining_allocation = 100;
@@ -323,7 +329,7 @@ static int get_random_active(){
   // Of these, pick the nth
   int n = rand() % active_procs;
   for(int pid = 1; pid <= MAXPROCS; pid++){
-    if(!active[pid]) continue;
+    if(!processes[pid].active) continue;
     if(!n--) return pid;
   }
   return 0;
@@ -334,7 +340,7 @@ static int get_random_inactive(){
   // Of these, pick the nth
   int n = rand() % (MAXPROCS - active_procs);
   for(int pid = 1; pid <= MAXPROCS; pid++){
-    if(active[pid]) continue;
+    if(processes[pid].active) continue;
     if(!n--) return pid;
   }
   return 0;
@@ -348,7 +354,8 @@ static int start_process(int pid){
   }
 
   active_procs++;
-  active[pid] = 1;
+  processes[pid].active = 1;
+  processes[pid].start_tick = t;
 
   //Printf("Started new process %d\n", pid);
   return 0;
@@ -367,12 +374,13 @@ static int end_process(int pid){
 
   remaining_allocation += allocated[pid];
   active_procs--;
-  active[pid] = 0;
-  allocated[pid] = 0;
+  processes[pid].active = 0;
+  processes[pid].requested = 0;
 
   //Printf("Ended process %d\n", pid);
   return 0;
 }
+
 
 int test_havoc(){
   int errors = 0;
@@ -384,8 +392,8 @@ int test_havoc(){
 
   memset(allocated, 0, sizeof(int) * (MAXPROCS + 1));
   memset(active, 0, sizeof(int) * (MAXPROCS + 1));
-  
-  for(int t = 0; t < 1000000; t++) {
+
+  for(t = 0; t < 1000000; t++) {
     // Start a new process?
     if(active_procs < MAXPROCS && !(rand() % 1100)) {
       if(start_process(get_random_inactive())) return ++errors;
@@ -409,7 +417,7 @@ int test_havoc(){
     // Change the priority of a random process?
     if(active_procs && !(rand() % 500)) {
       int pid = get_random_active();
-      int max_allocation = remaining_allocation + allocated[pid];
+      int max_allocation = remaining_allocation + processes[pid].requested;
 
       if(MyRequestCPUrate(pid, max_allocation + 1) != -1) {
         Printf("HAVOC ERR: Failed to reject overallocation request of %d for process %d\n",
@@ -420,6 +428,13 @@ int test_havoc(){
       if(max_allocation) {
         int new_allocation = 1 + rand() % max_allocation;
 
+        // Half the time, try to allocate the maximum available first
+        if(!(rand() % 2) && MyRequestCPUrate(pid, max_allocation) != 0){
+          Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
+                 new_allocation, pid, max_allocation);
+          return ++errors;
+        }
+
         // Printf("Changing allocation of %d: %d -> %d\n", pid, allocated[pid], new_allocation);
 
         if(MyRequestCPUrate(pid, new_allocation) != 0){
@@ -428,8 +443,11 @@ int test_havoc(){
           return ++errors;
         }
 
-        remaining_allocation += allocated[pid] - new_allocation;
-        allocated[pid] = new_allocation;
+        remaining_allocation += processes[pid].request - new_allocation;
+        processes[pid].request = new_allocation;
+
+        // We reset the start of a process when we make a new rate request
+        processes[pid].start_tick = t;
         last_event = t;
       }
     }
@@ -449,9 +467,9 @@ int test_havoc(){
       int min_leftover, max_leftover;
 
       for(int i = 1; i <= MAXPROCS; i++){
-        if(!active[i]) continue;
-        if(!inSlackRange(allocated[i], totals[i])) {
-          Printf("HAVOC ERR: Process %d received %d of the last 100 ticks, but requested %d\n", i, totals[i], allocated[i]);
+        if(!processes[i].active) continue;
+        if(!inSlackRange(processes[i].request, totals[i])) {
+          Printf("HAVOC ERR: Process %d received %d of the last 100 ticks, but requested %d\n", i, totals[i], processes[i].request);
           errors++;
         }
 
@@ -469,6 +487,17 @@ int test_havoc(){
         }
       }
 
+      for(int pid = 1; pid <= MAXPROCS; pid++) {
+        int age = t - processes[pid].start_tick;
+        if(age < 100) continue;
+        int expected = processes[pid].request * 100 /
+          (t - processes[pid].start_tick);
+        if(!inSlackRange(expected, processes[pid].tick_count)) {
+          Printf("HAVOC ERR: Process %d requested %d%% but only received %d of the %d ticks since its request\n",
+                 pid, processes[pid].request, processes[pid].tick_count, age);
+        }
+      }
+
       // If there was at least one leftover process, check that
       // the most-scheduled leftover process is scheduled at most
       // once more than the least-scheduled leftover process
@@ -483,7 +512,9 @@ int test_havoc(){
       }
     }
 
-    decision[t % 100] = get_next_sched();
+    int next = get_next_sched();
+    decision[t % 100] = next;
+    processes[next].tick_count++;
   }
 
   int pid;
