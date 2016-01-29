@@ -8,6 +8,8 @@
 #include "test.h"
 
 int totalFailCounter = 0;
+int verbose = 0;
+int should_run_havoc = 0;
 
 int inSlackRange(int expected, int actual) {
   if(actual >= expected) return 1;
@@ -23,6 +25,29 @@ int get_next_sched() {
   return SchedProc();
 }
 
+
+int test_arbitrary(int numprocs) {
+  int failCounter = 0;
+  SetSchedPolicy(ARBITRARY);
+  InitSched();
+  int proc;
+  for (proc = 1; proc <= numprocs; proc++)
+    StartingProc(proc);
+
+  for (proc = 0; proc < 500; proc++) {
+    int pid = get_next_sched();
+    if (!pid) {
+      Printf("ARBITRARY ERR: Received bad proces %d\n", pid);
+      failCounter++;
+    }
+  }
+
+  for (proc = 1; proc <= numprocs; proc++)
+    EndingProc(proc);
+
+  totalFailCounter += failCounter;
+  return failCounter;
+}
 
 int test_fifo_normal(int numprocs) {
   int failCounter = 0;
@@ -134,6 +159,76 @@ int test_rr_normal(int numprocs) {
   return failCounter;
 }
 
+int test_rr_middle_exit() {
+  // this test attempts to break a 'next pointer' implementation.
+  // it only runs one cycle through
+  int failCounter = 0;
+  SetSchedPolicy(ROUNDROBIN);
+  InitSched();
+  int counts[6];
+  for (int i = 1; i <= 5; i++) {
+    StartingProc(i);
+    counts[i] = 0;
+  }
+
+  // Run each once as in standard RR
+  for (int i = 1; i <= 5; i++) {
+    counts[get_next_sched()]++;
+  }
+
+  // Ensure that each was run once
+  for (int i = 1; i <= 5; i++) {
+    if (counts[i] != 1) {
+      Printf("ROUND ROBIN2 ERR: Process %d received %d ticks in one round, expected 1\n",
+          i, counts[i]);
+      failCounter++;
+    }
+    counts[i] = 0;
+  }
+
+  // End a process prematurely
+  EndingProc(3);
+
+  // Ensure one process ran twice, process 3 didnt run, everyone else ran once
+  for (int i = 1; i <= 5; i++) {
+    counts[get_next_sched()]++;
+  }
+
+  int twiceProcessRan = 0;
+  for (int i = 1; i <= 5; i++) {
+    if (i == 3) {
+      if (counts[i] != 0) {
+        Printf("ROUND ROBIN2 ERR: Process %d was ended but RR still selected it!\n",
+            i);
+        failCounter++;
+      }
+      continue;
+    }
+    if (counts[i] == 2) {
+      if (twiceProcessRan) {
+        Printf("ROUND ROBIN2 ERR: Process %d got 2 but expected 1 (6 ticks occured, a single process already took 2)\n", i);
+        failCounter++;
+      }
+      else
+        twiceProcessRan = 1;
+    }
+    else if (counts[i] != 1) {
+      Printf("ROUND ROBIN2 ERR: Process %d got %d but expected 1\n", i);
+      failCounter++;
+    }
+  }
+
+  for (int i = 1; i <= 5; i++) {
+    if (i == 3)
+      continue;
+
+    EndingProc(i);
+  }
+
+  totalFailCounter += failCounter;
+  return failCounter;
+}
+
 int test_proportional_normal(int numprocs) {
   int failCounter = 0;
   SetSchedPolicy(PROPORTIONAL);
@@ -156,7 +251,7 @@ int test_proportional_normal(int numprocs) {
              proportions[i]);
     }
   }
-
+  
   for (i = 0; i < 100; i++) {
     counts[get_next_sched()]++;
   }
@@ -268,19 +363,19 @@ int test_proportional_huge(int numprocs) {
     failCounter++;
   }
 
-  for (iter = 0; iter < 500; iter++) {
+  for (iter = 0; iter < 50000; iter++) {
     counts[get_next_sched()]++;
   }
 
-  if (counts[1] < (500 - (numprocs - 1))) {
-    Printf("PROPORTIONAL3 ERR: Process 1 should have received at least %d CPU ticks but got %d\n",
-           (500 - (numprocs - 1)), counts[1]);
+  if (counts[1] != 50000) {
+    Printf("PROPORTIONAL3 ERR: Process 1 should have received 50000 ticks but got %d\n",
+           counts[1]);
     failCounter++;
   }
 
   for (i = 2; i <= numprocs; i++) {
-    if (counts[i] > 1) {
-      Printf("PROPORTIONAL3 ERR: Process %d shouldnt have received >1 CPU tick (Recieved %d ticks) "
+    if (counts[i]) {
+      Printf("PROPORTIONAL3 ERR: Process %d received %d ticks but should have received none "
              "since process 1 requested 100%%\n", i, counts[i]);
       failCounter++;
     }
@@ -288,7 +383,7 @@ int test_proportional_huge(int numprocs) {
 
   for (i = 1; i <= numprocs; i++)
     EndingProc(i);
-
+  
   if (get_next_sched()) {
     Printf("PROPORTIONAL3 ERR: Not all processes have exited\n");
     failCounter++;
@@ -363,19 +458,37 @@ int test(int (*testerFunction) (int)) {
   return failures;
 }
 
+void parseCommandLineArg(int argc, char** argv){
+  for (int i = 1; i < argc; i++){
+    if (!strcmp(argv[i], "--havoc"))
+      should_run_havoc= 1;
+    else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
+      verbose = 1;
+  }
+}
+
+
 void Main(int argc, char** argv) {
+
+  parseCommandLineArg(argc, argv);
+
   srand(120 * 0xDEAD);
+  Printf("%d arbitrary failures\n", test(&test_arbitrary));
   Printf("%d fifo failures\n", test(&test_fifo_normal));
   Printf("%d lifo failures\n", test(&test_lifo_normal));
   Printf("%d roundrobin failures\n", test(&test_rr_normal));
+  Printf("%d roundrobin2 failures\n", test_rr_middle_exit());
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
   Printf("%d proportionalSPLIT failures\n",
       test(&test_proportional_split_amongst_procs));
 
-  if (argc > 1 && strcmp(argv[1], "--havoc") == 0)
-    Printf("%d havoc failures\n", test_havoc());
+  if(should_run_havoc){
+    int havoc_fails = test_havoc();
+    totalFailCounter += havoc_fails;
+    Printf("%d havoc failures\n", havoc_fails);
+  }
 
   Printf("%d Failures\n", totalFailCounter);
   if (totalFailCounter == 0)
