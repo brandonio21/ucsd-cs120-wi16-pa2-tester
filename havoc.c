@@ -1,4 +1,6 @@
 #include "test.h"
+#include <stdarg.h>
+#include <stdio.h>
 
 static struct{
   int active;
@@ -11,6 +13,40 @@ static int t = 0;
 static int active_procs = 0;
 static int last_event = 0;
 static int remaining_allocation = 100;
+static int errors = 0;
+
+static void info(char* fmt, ...) {
+  if(!verbose) return;
+  printf("HAVOC [%7d] INF: ", t);
+  va_list args;
+  va_start (args, fmt);
+  vprintf (fmt, args);
+  va_end (args);
+  printf("\n");
+}
+
+static void assert(int check, char* fmt, ...) {
+  if(check) return;
+  errors++;
+  printf("HAVOC [%7d] \x1b[33mERR: ", t);
+  va_list args;
+  va_start (args, fmt);
+  vprintf (fmt, args);
+  va_end (args);
+  printf("\x1b[0m\n");
+}
+
+static void assert_critical(int check, char* fmt, ...) {
+  if(check) return;
+  printf("HAVOC [%7d] \x1b[31mFATAL: ", t);
+  va_list args;
+  va_start (args, fmt);
+  vprintf (fmt, args);
+  va_end (args);
+  printf("\x1b[0m\n");
+  exit(-1);
+}
+
 
 static int get_random_active(){
   // There are (active_procs) PIDs to pick from
@@ -46,28 +82,20 @@ static void update_last_event(int pid) {
 
 // start a process with pid pid; return 0 on success
 static int start_process(int pid){
-  if(!StartingProc(pid)) {
-    Printf("HAVOC ERR: StartingProc failed\n");
-    return 1;
-  }
-
+  assert_critical(StartingProc(pid), "StartingProc failed");
   active_procs++;
   processes[pid].active = 1;
   processes[pid].start_tick = t;
   processes[pid].tick_count = 0;
 
   update_last_event(pid);
-  if (verbose)
-    Printf("Started new process %d at time t %d \n", pid, t);
+  info("Started new process %d", pid);
   return 0;
 }
 
 // end a process with pid pid; return 0 on success
 static int end_process(int pid){
-  if(!EndingProc(pid)) {
-    Printf("HAVOC ERR: EndingProc failed\n");
-    return 1;
-  }
+  assert_critical(EndingProc(pid), "EndingProc failed");
 
   remaining_allocation += processes[pid].request;
   active_procs--;
@@ -75,13 +103,11 @@ static int end_process(int pid){
   processes[pid].request = 0;
   update_last_event(pid);
   
-  if (verbose)
-     Printf("Ended process %d after %d ticks at time t %d\n", pid, t - processes[pid].start_tick, t);
+  info("Ended process %d after %d ticks", pid, t - processes[pid].start_tick);
   return 0;
 }
 
 int test_havoc(){
-  int errors = 0;
   int last_event = 0;
   int totals[MAXPROCS+1];
 
@@ -113,32 +139,32 @@ int test_havoc(){
       int pid = get_random_active();
       int max_allocation = remaining_allocation + processes[pid].request;
 
-      if(MyRequestCPUrate(pid, max_allocation + 1) != -1) {
-        Printf("HAVOC ERR: Failed to reject overallocation request of %d for process %d\n",
-               max_allocation + 1, pid);
-        return ++errors;
-      }
+      assert_critical(MyRequestCPUrate(pid, max_allocation + 1) == -1,
+		   "Failed to reject overallocation request of %d for process %d",
+		   max_allocation + 1, pid);
 
       if(max_allocation) {
         int new_allocation = 1 + rand() % max_allocation;
 
         // Half the time, try to allocate the maximum available first
-        if(!(rand() % 2) && MyRequestCPUrate(pid, max_allocation) != 0){
-          Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
-                 max_allocation, pid, max_allocation);
-          return ++errors;
-        }
+        if(!(rand() % 2))
+	  assert_critical(MyRequestCPUrate(pid, max_allocation) == 0,
+		       "Failed to accept valid request of %d for process %d; "
+		       "should have been able to request up to %d",
+		       max_allocation, pid, max_allocation);
 
-        if(MyRequestCPUrate(pid, new_allocation) != 0){
-          Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
-                 new_allocation, pid, max_allocation);
-          return ++errors;
-        }
 
-        if (verbose)
-            Printf("Process %d changing allocation : %d -> %d, current allocation: %d%% \n", pid, processes[pid].request, new_allocation, (100-remaining_allocation - processes[pid].request + new_allocation));
+        assert_critical(MyRequestCPUrate(pid, new_allocation) == 0,
+		     "Failed to accept valid request of %d for process %d; "
+		     "should have been able to request up to %d",
+		     new_allocation, pid, max_allocation);
+
+
         remaining_allocation += processes[pid].request - new_allocation;
-        processes[pid].request = new_allocation;
+	info("Process %2d changing allocation: %3d -> %3d, new total allocation: %3d%%",
+	     pid, processes[pid].request, new_allocation, 100 - remaining_allocation);
+
+	processes[pid].request = new_allocation;
         
         // We reset the start of a process when we make a new rate request
         processes[pid].start_tick = t;
@@ -181,11 +207,10 @@ int test_havoc(){
     // If there was at least one leftover process, check that
     // the most-scheduled leftover process is scheduled at most
     // once more than the least-scheduled process
-    if(leftover_count && leftover_max - leftover_min > 1) {
-      Printf("HAVOC ERR: Leftover processes %d and %d were not scheduled equally (received %d and %d ticks respectively)\n",
-	     min_leftover, max_leftover, leftover_min, leftover_max);
-      errors++;
-    }
+    assert(!leftover_count || leftover_max - leftover_min <= 1,
+	   "Leftover processes %d and %d were not scheduled equally "
+	   "(received %d and %d ticks respectively out of %d)",
+	   min_leftover, max_leftover, leftover_min, leftover_max, t - last_event);
     
     for(int i = 1; i <= MAXPROCS; i++){
       if(!processes[i].active) continue;
@@ -193,14 +218,14 @@ int test_havoc(){
       int age = t - processes[i].start_tick;
       if(age < 100) continue;
       int expected = processes[i].request * age / 100;
-      if(!inSlackRange(expected, processes[i].tick_count)) {
 
-	float actual_percent = 100.0 * processes[i].tick_count / age;
-	Printf("HAVOC ERR: Process %d requested %d%% but only received %d of the %d ticks since its request (%2.2f%%) at t %d\n",
-	       i, processes[i].request, processes[i].tick_count, age, actual_percent, t);
-	errors++;
-      }
+      assert(inSlackRange(expected, processes[i].tick_count),
+	     "Process %2d requested %3d%% but only received %2.2f%% "
+	     "(%d of the %d ticks since its request)",
+	     i, processes[i].request, 100.0 * processes[i].tick_count / age,
+	     processes[i].tick_count, age);
     }
+    
     processes[get_next_sched()].tick_count++;
   }
 
