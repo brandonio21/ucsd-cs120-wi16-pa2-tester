@@ -66,7 +66,7 @@ int test_fifo_normal(int numprocs) {
     }
 
     EndingProc(proc);
-  } 
+  }
 
   /* check if all process are exited */
   if (get_next_sched()) {
