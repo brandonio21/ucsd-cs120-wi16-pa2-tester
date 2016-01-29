@@ -219,8 +219,8 @@ int test_proportional_hog(int numprocs) {
   }
 
   for (i = 2; i <= numprocs; i++) {
-    if (counts[i] > 1) {
-      Printf("PROPORTIONAL2 ERR: Process %d shouldn't have received >1%% CPU time (Received %d%%) "
+    if (counts[i] > 0) {
+      Printf("PROPORTIONAL2 ERR: Process %d shouldn't have received >0%% CPU time (Received %d%%) "
              "since process 1 requested 100%%. \n",
              i, counts[i]);
       failCounter++;
