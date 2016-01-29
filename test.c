@@ -156,7 +156,7 @@ int test_proportional_normal(int numprocs) {
              proportions[i]);
     }
   }
-
+  
   for (i = 0; i < 100; i++) {
     counts[get_next_sched()]++;
   }
@@ -268,19 +268,19 @@ int test_proportional_huge(int numprocs) {
     failCounter++;
   }
 
-  for (iter = 0; iter < 500; iter++) {
+  for (iter = 0; iter < 50000; iter++) {
     counts[get_next_sched()]++;
   }
 
-  if (counts[1] < (500 - (numprocs - 1))) {
-    Printf("PROPORTIONAL3 ERR: Process 1 should have received at least %d CPU ticks but got %d\n",
-           (500 - (numprocs - 1)), counts[1]);
+  if (counts[1] != 50000) {
+    Printf("PROPORTIONAL3 ERR: Process 1 should have received 50000 ticks but got %d\n",
+           counts[1]);
     failCounter++;
   }
 
   for (i = 2; i <= numprocs; i++) {
-    if (counts[i] > 1) {
-      Printf("PROPORTIONAL3 ERR: Process %d shouldnt have received >1 CPU tick (Recieved %d ticks) "
+    if (counts[i]) {
+      Printf("PROPORTIONAL3 ERR: Process %d received %d ticks but should have received none "
              "since process 1 requested 100%%\n", i, counts[i]);
       failCounter++;
     }
@@ -288,7 +288,7 @@ int test_proportional_huge(int numprocs) {
 
   for (i = 1; i <= numprocs; i++)
     EndingProc(i);
-
+  
   if (get_next_sched()) {
     Printf("PROPORTIONAL3 ERR: Not all processes have exited\n");
     failCounter++;
@@ -315,8 +315,11 @@ void Main(int argc, char** argv) {
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
-  if (argc > 1 && strcmp(argv[1], "--havoc") == 0)
-    Printf("%d havoc failures\n", test_havoc());
+  if (argc > 1 && !strcmp(argv[1], "--havoc")) {
+    int havoc_fails = test_havoc();
+    totalFailCounter += havoc_fails;
+    Printf("%d havoc failures\n", havoc_fails);
+  }
 
   Printf("%d Failures\n", totalFailCounter);
   if (totalFailCounter == 0)

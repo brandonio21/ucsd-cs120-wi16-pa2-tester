@@ -102,7 +102,7 @@ int test_havoc(){
     }
 
     // End a random process?
-    if(0 && active_procs && !(rand() % 1000)) {
+    if(active_procs && !(rand() % 1000)) {
       if(end_process(get_random_active())) return ++errors;
     }
 
