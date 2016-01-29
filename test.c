@@ -311,71 +311,111 @@ int test_proportional_huge(int numprocs) {
   return failCounter;
 }
 
-int test_havoc(int numprocs){
+// TODO: move all of havoc into a new C file
+static int active[MAXPROCS+1];
+static int active_procs = 0;
+static int allocated[MAXPROCS+1];
+static int last_event = 0;
+static int decision[100];
+static int remaining_allocation = 100;
+
+static int get_random_active(){
+  // There are (active_procs) PIDs to pick from
+  // Of these, pick the nth
+  int n = rand() % active_procs;
+  for(int pid = 1; pid <= MAXPROCS; pid++){
+    if(!active[pid]) continue;
+    if(!n--) return pid;
+  }
+  return 0;
+}
+
+static int get_random_inactive(){
+  // There are (MAXPROCS - active_procs) PIDs to pick from
+  // Of these, pick the nth
+  int n = rand() % (MAXPROCS - active_procs);
+  for(int pid = 1; pid <= MAXPROCS; pid++){
+    if(active[pid]) continue;
+    if(!n--) return pid;
+  }
+  return 0;
+}
+
+// start a process with pid pid; return 0 on success
+static int start_process(int pid){
+  if(!StartingProc(pid)) {
+    Printf("HAVOC ERR: StartingProc failed\n");
+    return 1;
+  }
+
+  active_procs++;
+  active[pid] = 1;
+
+  //Printf("Started new process %d\n", pid);
+  return 0;
+}
+
+// start a process with pid pid; return 0 on success
+static int end_process(int pid){
+  for(int i = 0; i < 100; i++){
+    if(decision[i] == pid) decision[i] = 0;
+  }
+  
+  if(!EndingProc(pid)) {
+    Printf("HAVOC ERR: EndingProc failed\n");
+    return 1;
+  }
+      
+  remaining_allocation += allocated[pid];
+  active_procs--;
+  active[pid] = 0;
+  allocated[pid] = 0;
+  
+  //Printf("Ended process %d\n", pid);
+  return 0;
+}
+
+int test_havoc(){
   int errors = 0;
+  int last_event = 0;
+  int totals[MAXPROCS+1];
+  
   SetSchedPolicy(PROPORTIONAL);
   InitSched();
-  int decision[100];
-  int pid_top = 0;
-  int last_event = 0;
-  int* allocated = calloc(numprocs + 1, 4);
-  int remaining_allocation = 100;
-  
+
+  memset(allocated, 0, sizeof(int) * (MAXPROCS + 1));
+  memset(active, 0, sizeof(int) * (MAXPROCS + 1));
   srand(120);
   
   for(int t = 0; t < 1000000; t++) {
     // Start a new process?
-    if(pid_top < numprocs && !(rand() % 1100)) {
-
-      if(!StartingProc(++pid_top)) {
-	Printf("HAVOC ERR: StartingProc failed\n");
-	return ++errors;
-      }
-      // Printf("Started new process %d\n", pid_top);
+    if(active_procs < MAXPROCS && !(rand() % 1100)) {
+      if(start_process(get_random_inactive())) return ++errors;
       last_event = t;
     }
 
     // Start as many new processes as possible?
     if(!(rand() % 50000)) {
-      while(pid_top < numprocs){
-	if(!StartingProc(++pid_top)) {
-	  Printf("HAVOC ERR: StartingProc failed\n");
-	  return ++errors;
-	}
-	// Printf("Started new process %d\n", pid_top);
-	last_event = t;
+      while(active_procs < MAXPROCS) {
+	if(start_process(get_random_inactive())) return ++errors;
       }
+      last_event = t;
     }
     
-    // End the last process?
-    // TOOD: with more bookkeeping we could end a random process   
-    if(pid_top && !(rand() % 1000)) {
-
-      for(int i = 0; i < 100; i++){
-	if(decision[i] == pid_top) decision[i] = 0;
-      }
-
-      remaining_allocation += allocated[pid_top];
-      allocated[pid_top] = 0;
-      
-      // Printf("Ending process %d\n", pid_top);	    
-      
-      if(!EndingProc(pid_top--)) {
-	Printf("HAVOC ERR: EndingProc failed\n");
-	return ++errors;
-      }
-      
+    // End a random process?
+    if(active_procs && !(rand() % 1000)) {
+      if(end_process(get_random_active())) return ++errors;
       last_event = t;
     }
 
     // Change the priority of a random process?
-    if(pid_top && !(rand() % 500)) {
-      int pid = rand() % pid_top + 1;
+    if(active_procs && !(rand() % 500)) {
+      int pid = get_random_active();
       int max_allocation = remaining_allocation + allocated[pid];
 
       if(MyRequestCPUrate(pid, max_allocation + 1) != -1) {	
 	Printf("HAVOC ERR: Failed to reject overallocation request of %d for process %d\n",
-	       max_allocation+1, pid);
+	       max_allocation + 1, pid);
 	return ++errors;
       }
 
@@ -383,6 +423,7 @@ int test_havoc(int numprocs){
 	int new_allocation = 1 + rand() % max_allocation;
 
 	// Printf("Changing allocation of %d: %d -> %d\n", pid, allocated[pid], new_allocation);
+	
 	if(MyRequestCPUrate(pid, new_allocation) != 0){
 	  Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
 		 new_allocation, pid, max_allocation);
@@ -398,27 +439,55 @@ int test_havoc(int numprocs){
     // if we've had more than 100 ticks since the last event,
     // validate the last 100 decisions
     if(t - last_event >= 100) {
-      int* totals = calloc(4, numprocs+1);
+      memset(totals, 0, sizeof(int) * (MAXPROCS + 1));
 
       // total the ticks that each process received
       for(int i = 0; i < 100; i++)
 	totals[decision[i]]++;
+
+      // of the leftover processes (which did not request a specific CPU rate),
+      // the minimum and maximum number of ticks allocated
+      int leftover_min = 100, leftover_max = 0;
+      int min_leftover, max_leftover;
       
-      for(int i = 1; i <= numprocs; i++){
+      for(int i = 1; i <= MAXPROCS; i++){
+	if(!active[i]) continue;
 	if(!inSlackRange(allocated[i], totals[i])) {
 	  Printf("HAVOC ERR: Process %d received %d of the last 100 ticks, but requested %d\n", i, totals[i], allocated[i]);
 	  errors++;
 	}
+
+	// if a process didn't make any request, it's a leftover process
+	if(!allocated[i]) {
+	  if(totals[i] < leftover_min) {
+	    leftover_min = totals[i];
+	    min_leftover = i;
+	  }
+	  
+	  if(totals[i] > leftover_max) {
+	    leftover_max = totals[i];
+	    max_leftover = i;
+	  }
+	}
       }
 
-      free(totals);
+      // If there was at least one leftover process, check that
+      // the most-scheduled leftover process is scheduled at most
+      // once more than the least-scheduled leftover process
+      // across the last 100 ticks
+
+      // This is the closest we can get to verifying that the processes
+      // are scheduled equally, given our 100-tick ring buffer
+      
+      if(leftover_max && leftover_max - leftover_min > 1) {
+	Printf("HAVOC ERR: Leftover processes %d and %d were not scheduled equally (received %d and %d ticks respectively)\n",
+	       min_leftover, max_leftover, leftover_min, leftover_max);
+      }
     }
 
     decision[t % 100] = get_next_sched();
   }
 
-  free(allocated);
-    
   totalFailCounter += errors;
   return errors;
 }
