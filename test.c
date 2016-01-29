@@ -136,6 +136,76 @@ int test_rr_normal(int numprocs) {
   return failCounter;
 }
 
+int test_rr_middle_exit() {
+  // this test attempts to break a 'next pointer' implementation.
+  // it only runs one cycle through
+  int failCounter = 0;
+  SetSchedPolicy(ROUNDROBIN);
+  InitSched();
+  int counts[6];
+  for (int i = 1; i <= 5; i++) {
+    StartingProc(i);
+    counts[i] = 0;
+  }
+
+  // Run each once as in standard RR
+  for (int i = 1; i <= 5; i++) {
+    counts[get_next_sched()]++;
+  }
+
+  // Ensure that each was run once
+  for (int i = 1; i <= 5; i++) {
+    if (counts[i] != 1) {
+      Printf("ROUND ROBIN2 ERR: Process %d received %d ticks in one round, expected 1\n",
+          i, counts[i]);
+      failCounter++;
+    }
+    counts[i] = 0;
+  }
+
+  // End a process prematurely
+  EndingProc(3);
+
+  // Ensure one process ran twice, process 3 didnt run, everyone else ran once
+  for (int i = 1; i <= 5; i++) {
+    counts[get_next_sched()]++;
+  }
+
+  int twiceProcessRan = 0;
+  for (int i = 1; i <= 5; i++) {
+    if (i == 3) {
+      if (counts[i] != 0) {
+        Printf("ROUND ROBIN2 ERR: Process %d was ended but RR still selected it!\n",
+            i);
+        failCounter++;
+      }
+      continue;
+    }
+    if (counts[i] == 2) {
+      if (twiceProcessRan) {
+        Printf("ROUND ROBIN2 ERR: Process %d got 2 but expected 1 (6 ticks occured, a single process already took 2)\n", i);
+        failCounter++;
+      }
+      else
+        twiceProcessRan = 1;
+    }
+    else if (counts[i] != 1) {
+      Printf("ROUND ROBIN2 ERR: Process %d got %d but expected 1\n", i);
+      failCounter++;
+    }
+  }
+
+  for (int i = 1; i <= 5; i++) {
+    if (i == 3)
+      continue;
+
+    EndingProc(i);
+  }
+
+  totalFailCounter += failCounter;
+  return failCounter;
+}
+
 int test_proportional_normal(int numprocs) {
   int failCounter = 0;
   SetSchedPolicy(PROPORTIONAL);
@@ -327,6 +397,7 @@ void Main(int argc, char** argv) {
   Printf("%d fifo failures\n", test(&test_fifo_normal));
   Printf("%d lifo failures\n", test(&test_lifo_normal));
   Printf("%d roundrobin failures\n", test(&test_rr_normal));
+  Printf("%d roundrobin2 failures\n", test_rr_middle_exit());
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
