@@ -56,8 +56,9 @@ static int start_process(int pid){
   processes[pid].start_tick = t;
   processes[pid].tick_count = 0;
 
-  //Printf("Started new process %d\n", pid);
   update_last_event(pid);
+  if (verbose)
+      Printf("Started new process %d at time t %d \n", pid, t);
   return 0;
 }
 
@@ -74,7 +75,8 @@ static int end_process(int pid){
   processes[pid].request = 0;
   update_last_event(pid);
   
-  // Printf("Ended process %d after %d ticks\n", pid, t - processes[pid].start_tick);
+   if (verbose)
+       Printf("Ended process %d after %d ticks at time t %d\n", pid, t - processes[pid].start_tick, t);
   return 0;
 }
 
@@ -123,7 +125,7 @@ int test_havoc(){
         // Half the time, try to allocate the maximum available first
         if(!(rand() % 2) && MyRequestCPUrate(pid, max_allocation) != 0){
           Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
-                 new_allocation, pid, max_allocation);
+                 max_allocation, pid, max_allocation);
           return ++errors;
         }
 
@@ -143,6 +145,9 @@ int test_havoc(){
 	processes[pid].tick_count = 0;
 
 	update_last_event(pid);
+        last_event = t;
+        if (verbose)
+            Printf("Process %d request a new rate of %d at t %d\n", pid, new_allocation, t);
       }
     }
 
@@ -192,9 +197,10 @@ int test_havoc(){
       if(age < 100) continue;
       int expected = processes[i].request * age / 100;
       if(!inSlackRange(expected, processes[i].tick_count)) {
+
 	float actual_percent = 100.0 * processes[i].tick_count / age;
-	Printf("HAVOC ERR: Process %d requested %d%% but only received %d of the %d ticks since its request (%2.2f%%)\n",
-	       i, processes[i].request, processes[i].tick_count, age, actual_percent);
+	Printf("HAVOC ERR: Process %d requested %d%% but only received %d of the %d ticks since its request (%2.2f%%) at t %d\n",
+	       i, processes[i].request, processes[i].tick_count, age, actual_percent, t);
 	errors++;
       }
     }

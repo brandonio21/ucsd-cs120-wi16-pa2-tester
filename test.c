@@ -8,6 +8,8 @@
 #include "test.h"
 
 int totalFailCounter = 0;
+int verbose = 0;
+int should_run_havoc = 0;
 
 int inSlackRange(int expected, int actual) {
   if(actual >= expected) return 1;
@@ -307,7 +309,20 @@ int test(int (*testerFunction) (int)) {
   return failures;
 }
 
+void parseCommandLineArg(int argc, char** argv){
+  for (int i = 1; i < argc; i++){
+    if (!strcmp(argv[i], "--havoc"))
+      should_run_havoc= 1;
+    else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
+      verbose = 1;
+  }
+}
+
+
 void Main(int argc, char** argv) {
+
+  parseCommandLineArg(argc, argv);
+
   srand(120 * 0xDEAD);
   Printf("%d fifo failures\n", test(&test_fifo_normal));
   Printf("%d lifo failures\n", test(&test_lifo_normal));
@@ -315,7 +330,8 @@ void Main(int argc, char** argv) {
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
-  if (argc > 1 && !strcmp(argv[1], "--havoc")) {
+
+  if(should_run_havoc){
     int havoc_fails = test_havoc();
     totalFailCounter += havoc_fails;
     Printf("%d havoc failures\n", havoc_fails);
