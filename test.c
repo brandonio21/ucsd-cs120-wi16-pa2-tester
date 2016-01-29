@@ -393,6 +393,13 @@ int test_proportional_huge(int numprocs) {
   return failCounter;
 }
 
+
+/*
+ * A simple test case to ensure that any processes with no CPU allocation 
+ * don't take too much CPU, even if there is less than 1% to go around. Also 
+ * ensures that 1% is appropriately split among processes with no CPU 
+ * allocation.
+ */
 int test_proportional_split_amongst_procs(int numprocs) {
   int failCounter = 0;
   SetSchedPolicy(PROPORTIONAL);
