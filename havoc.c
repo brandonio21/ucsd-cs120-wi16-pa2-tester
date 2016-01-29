@@ -135,16 +135,16 @@ int test_havoc(){
           return ++errors;
         }
 
+        if (verbose)
+            Printf("Process %d changing allocation : %d -> %d, current allocation: %d%% \n", pid, processes[pid].request, new_allocation, (100-remaining_allocation - processes[pid].request + new_allocation));
         remaining_allocation += processes[pid].request - new_allocation;
         processes[pid].request = new_allocation;
-
+        
         // We reset the start of a process when we make a new rate request
         processes[pid].start_tick = t;
 	processes[pid].tick_count = 0;
 
 	update_last_event(pid);
-    if (verbose)
-      Printf("Process %d changing allocation : %d -> %d, current allocation: %d%% \n", pid, processes[pid].request, new_allocation, (100-remaining_allocation));
       }
     }
 
