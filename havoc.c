@@ -34,6 +34,16 @@ static int get_random_inactive(){
   return 0;
 }
 
+static void update_last_event(int pid) {
+  last_event = t;
+  if(processes[pid].request) return;
+  for(pid = 1; pid <= MAXPROCS; pid++){
+    if(!processes[pid].request) {
+      processes[pid].tick_count = 0;
+    }
+  }
+}
+
 // start a process with pid pid; return 0 on success
 static int start_process(int pid){
   if(!StartingProc(pid)) {
@@ -47,6 +57,7 @@ static int start_process(int pid){
   processes[pid].tick_count = 0;
 
   //Printf("Started new process %d\n", pid);
+  update_last_event(pid);
   return 0;
 }
 
@@ -61,11 +72,11 @@ static int end_process(int pid){
   active_procs--;
   processes[pid].active = 0;
   processes[pid].request = 0;
-
+  update_last_event(pid);
+  
   // Printf("Ended process %d after %d ticks\n", pid, t - processes[pid].start_tick);
   return 0;
 }
-
 
 int test_havoc(){
   int errors = 0;
@@ -81,7 +92,6 @@ int test_havoc(){
     // Start a new process?
     if(active_procs < MAXPROCS && !(rand() % 1100)) {
       if(start_process(get_random_inactive())) return ++errors;
-      last_event = t;
     }
 
     // Start as many new processes as possible?
@@ -89,13 +99,11 @@ int test_havoc(){
       while(active_procs < MAXPROCS) {
         if(start_process(get_random_inactive())) return ++errors;
       }
-      last_event = t;
     }
 
     // End a random process?
     if(active_procs && !(rand() % 1000)) {
       if(end_process(get_random_active())) return ++errors;
-      last_event = t;
     }
 
     // Change the priority of a random process?
@@ -133,31 +141,50 @@ int test_havoc(){
         // We reset the start of a process when we make a new rate request
         processes[pid].start_tick = t;
 	processes[pid].tick_count = 0;
-        last_event = t;
+
+	update_last_event(pid);
       }
     }
 
-    if(t - last_event >= 100) {
-      // of the leftover processes (which did not request a specific CPU rate),
-      // the minimum and maximum number of ticks allocated
-      int leftover_min = 100, leftover_max = 0;
-      int min_leftover, max_leftover;
-
-      // If there was at least one leftover process, check that
-      // the most-scheduled leftover process is scheduled at most
-      // once more than the least-scheduled leftover process
-      // across the last 100 ticks
-
-      // This is the closest we can get to verifying that the processes
-      // are scheduled equally, given our 100-tick ring buffer
-
-      if(leftover_max && leftover_max - leftover_min > 1) {
-        Printf("HAVOC ERR: Leftover processes %d and %d were not scheduled equally (received %d and %d ticks respectively)\n",
-               min_leftover, max_leftover, leftover_min, leftover_max);
-	errors++;
+    // of the leftover processes (which did not request a specific CPU rate),
+    // the minimum and maximum number of ticks allocated
+    int leftover_min = 0x7FFFFFFF, leftover_max = 0;
+    int min_leftover, max_leftover;
+    int leftover_count = 0;
+    
+    for(int i = 1; i <= MAXPROCS; i++) {
+      if(!processes[i].request && processes[i].active){
+	leftover_count++;
+	int count = processes[i].tick_count;
+	if(count < leftover_min) {
+	  leftover_min = count;
+	  min_leftover = i;
+	}
+	
+	if(count > leftover_max) {
+	  leftover_max = count;
+	  max_leftover = i;
+	}
       }
     }
 
+    // If there were extra ticks, and it's been at least 100 ticks
+    // since the last event, we expect to see at least one leftover
+    // process run in that time
+    /*if(remaining_allocation && (t - last_event >= MAXPROCS*100) && leftover_count && !leftover_max){
+      Printf("HAVOC ERR: %d Expected a leftover process to run in the last %d ticks\n", t, MAXPROCS*100);
+      }*/
+	
+    
+    // If there was at least one leftover process, check that
+    // the most-scheduled leftover process is scheduled at most
+    // once more than the least-scheduled process
+    if(leftover_count && leftover_max - leftover_min > 1) {
+      Printf("HAVOC ERR: Leftover processes %d and %d were not scheduled equally (received %d and %d ticks respectively)\n",
+	     min_leftover, max_leftover, leftover_min, leftover_max);
+      errors++;
+    }
+    
     for(int i = 1; i <= MAXPROCS; i++){
       if(!processes[i].active) continue;
       if(!processes[i].request) continue;
@@ -175,8 +202,6 @@ int test_havoc(){
   }
 
   while(active_procs) end_process(get_random_active());
-
-  totalFailCounter += errors;
   return errors;
 }
 

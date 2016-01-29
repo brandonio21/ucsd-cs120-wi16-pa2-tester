@@ -16,5 +16,3 @@
 int inSlackRange(int expected, int actual);
 int get_next_sched();
 int test_havoc();
-
-extern int totalFailCounter;
