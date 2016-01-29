@@ -58,7 +58,7 @@ static int start_process(int pid){
 
   update_last_event(pid);
   if (verbose)
-      Printf("Started new process %d at time t %d \n", pid, t);
+    Printf("Started new process %d at time t %d \n", pid, t);
   return 0;
 }
 
@@ -75,8 +75,8 @@ static int end_process(int pid){
   processes[pid].request = 0;
   update_last_event(pid);
   
-   if (verbose)
-       Printf("Ended process %d after %d ticks at time t %d\n", pid, t - processes[pid].start_tick, t);
+  if (verbose)
+     Printf("Ended process %d after %d ticks at time t %d\n", pid, t - processes[pid].start_tick, t);
   return 0;
 }
 
@@ -129,7 +129,8 @@ int test_havoc(){
           return ++errors;
         }
 
-        // Printf("Changing allocation of %d: %d -> %d\n", pid, processes[pid].request, new_allocation);
+        if (verbose)
+            Printf("Changing allocation of %d: %d -> %d\n", pid, processes[pid].request, new_allocation);
 
         if(MyRequestCPUrate(pid, new_allocation) != 0){
           Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
@@ -145,9 +146,8 @@ int test_havoc(){
 	processes[pid].tick_count = 0;
 
 	update_last_event(pid);
-        last_event = t;
-        if (verbose)
-            Printf("Process %d request a new rate of %d at t %d\n", pid, new_allocation, t);
+    if (verbose)
+        Printf("Process %d request a new rate of %d at t %d\n", pid, new_allocation, t);
       }
     }
 
