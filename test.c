@@ -41,7 +41,7 @@ int test_fifo_normal(int numprocs) {
     }
 
     EndingProc(proc);
-  }
+  } 
 
   /* check if all process are exited */
   if (get_next_sched()) {
@@ -298,6 +298,59 @@ int test_proportional_huge(int numprocs) {
   return failCounter;
 }
 
+int test_proportional_split_amongst_procs(int numprocs) {
+  int failCounter = 0;
+  SetSchedPolicy(PROPORTIONAL);
+  InitSched();
+  int i, iter;
+  int counts[numprocs+1];
+  int numRecvd = 0;
+
+  for (i = 1; i <= numprocs; i++) {
+    StartingProc(i);
+    counts[i] = 0;
+  }
+
+  if (MyRequestCPUrate(1, 99) == -1) {
+    Printf("PROPORTIONALSPLIT ERR: MyRequestCPUrate returned -1 when CPU was available\n");
+    failCounter++;
+  }
+
+  for (iter = 0; iter < 500; iter++) {
+    counts[get_next_sched()]++;
+  }
+
+  if (!inSlackRange(495, counts[1])) {
+    Printf("PROPORTIONALSPLIT ERR: Process 1 should have received at least %d CPU ticks but got %d\n",
+           (int) (495 * 0.9), counts[1]);
+    failCounter++;
+  }
+
+  for (i = 2; i <= numprocs; i++) {
+    if (counts[i] >= 1) {
+      numRecvd++;
+    }
+  }
+
+  if (numRecvd < 5) {
+    Printf("PROPORTIONALSPLIT ERR:" 
+        " At >5 procs should have received a cpu tick"
+        " since process 1 requested 99%%\n");
+    failCounter++;
+  }
+
+  for (i = 1; i <= numprocs; i++)
+    EndingProc(i);
+
+  if (get_next_sched()) {
+    Printf("PROPORTIONAL3 ERR: Not all processes have exited\n");
+    failCounter++;
+  }
+
+  totalFailCounter += failCounter;
+  return failCounter;
+}
+
 int test(int (*testerFunction) (int)) {
   int i, failures;
   failures = 0;
@@ -315,6 +368,9 @@ void Main(int argc, char** argv) {
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
+  Printf("%d proportionalSPLIT failures\n",
+      test(&test_proportional_split_amongst_procs));
+
   if (argc > 1 && strcmp(argv[1], "--havoc") == 0)
     Printf("%d havoc failures\n", test_havoc());
 
