@@ -315,7 +315,7 @@ void Main(int argc, char** argv) {
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
-  if (argc > 1 && strcmp(argv[1], "--havok") == 0)
+  if (argc > 1 && strcmp(argv[1], "--havoc") == 0)
     Printf("%d havoc failures\n", test_havoc());
 
   Printf("%d Failures\n", totalFailCounter);
