@@ -305,6 +305,7 @@ int test_proportional_split_amongst_procs(int numprocs) {
   int i, iter;
   int counts[numprocs+1];
   int numRecvd = 0;
+  /* Printf("start\n"); */
 
   for (i = 1; i <= numprocs; i++) {
     StartingProc(i);
@@ -326,13 +327,15 @@ int test_proportional_split_amongst_procs(int numprocs) {
     failCounter++;
   }
 
+  /* Printf("%d recvd %d\n", 1, counts[1]); */
   for (i = 2; i <= numprocs; i++) {
+    /* Printf("%d recvd %d\n", i, counts[i]); */
     if (counts[i] >= 1) {
       numRecvd++;
     }
   }
 
-  if (numRecvd < 5) {
+  if (numprocs >= 6 && numRecvd < 5) {
     Printf("PROPORTIONALSPLIT ERR:" 
         " At >5 procs should have received a cpu tick"
         " since process 1 requested 99%%\n");
