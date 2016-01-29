@@ -400,7 +400,9 @@ int test_proportional_split_amongst_procs(int numprocs) {
   int i, iter;
   int counts[numprocs+1];
   int numRecvd = 0;
-  /* Printf("start\n"); */
+
+  if (verbose)
+    Printf("start PROPORTIONALSPLIT with %d procs\n", numprocs);
 
   for (i = 1; i <= numprocs; i++) {
     StartingProc(i);
@@ -422,9 +424,11 @@ int test_proportional_split_amongst_procs(int numprocs) {
     failCounter++;
   }
 
-  /* Printf("%d recvd %d\n", 1, counts[1]); */
+  if (verbose)
+    Printf("proc %d recvd %d ticks\n", 1, counts[1]);
   for (i = 2; i <= numprocs; i++) {
-    /* Printf("%d recvd %d\n", i, counts[i]); */
+    if (verbose)
+      Printf("proc %d recvd %d ticks\n", i, counts[i]);
     if (counts[i] >= 1) {
       numRecvd++;
     }
@@ -441,7 +445,7 @@ int test_proportional_split_amongst_procs(int numprocs) {
     EndingProc(i);
 
   if (get_next_sched()) {
-    Printf("PROPORTIONAL3 ERR: Not all processes have exited\n");
+    Printf("PROPORTIONALSPLIT ERR: Not all processes have exited\n");
     failCounter++;
   }
 
