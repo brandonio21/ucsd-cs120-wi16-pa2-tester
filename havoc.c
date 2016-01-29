@@ -129,9 +129,6 @@ int test_havoc(){
           return ++errors;
         }
 
-        if (verbose)
-            Printf("Changing allocation of %d: %d -> %d\n", pid, processes[pid].request, new_allocation);
-
         if(MyRequestCPUrate(pid, new_allocation) != 0){
           Printf("HAVOC ERR: Failed to accept valid request of %d for process %d; should have been able to request up to %d\n",
                  new_allocation, pid, max_allocation);
@@ -147,7 +144,7 @@ int test_havoc(){
 
 	update_last_event(pid);
     if (verbose)
-        Printf("Process %d request a new rate of %d at t %d\n", pid, new_allocation, t);
+      Printf("Process %d changing allocation : %d -> %d, current allocation: %d%% \n", pid, processes[pid].request, new_allocation, (100-remaining_allocation));
       }
     }
 
