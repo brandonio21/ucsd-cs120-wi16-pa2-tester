@@ -26,6 +26,29 @@ int get_next_sched() {
 }
 
 
+int test_arbitrary(int numprocs) {
+  int failCounter = 0;
+  SetSchedPolicy(ARBITRARY);
+  InitSched();
+  int proc;
+  for (proc = 1; proc <= numprocs; proc++)
+    StartingProc(proc);
+
+  for (proc = 0; proc < 500; proc++) {
+    int pid = get_next_sched();
+    if (!pid) {
+      Printf("ARBITRARY ERR: Received bad proces %d\n", pid);
+      failCounter++;
+    }
+  }
+
+  for (proc = 1; proc <= numprocs; proc++)
+    EndingProc(proc);
+
+  totalFailCounter += failCounter;
+  return failCounter;
+}
+
 int test_fifo_normal(int numprocs) {
   int failCounter = 0;
   SetSchedPolicy(FIFO);
@@ -394,6 +417,7 @@ void Main(int argc, char** argv) {
   parseCommandLineArg(argc, argv);
 
   srand(120 * 0xDEAD);
+  Printf("%d arbitrary failures\n", test(&test_arbitrary));
   Printf("%d fifo failures\n", test(&test_fifo_normal));
   Printf("%d lifo failures\n", test(&test_lifo_normal));
   Printf("%d roundrobin failures\n", test(&test_rr_normal));
