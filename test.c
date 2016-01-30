@@ -431,14 +431,11 @@ int test_proportional_split_amongst_procs(int numprocs) {
     failCounter++;
   }
 
-  if (verbose)
-    Printf("proc %d recvd %d ticks\n", 1, counts[1]);
-  for (i = 2; i <= numprocs; i++) {
+  for (i = 1; i <= numprocs; i++) {
     if (verbose)
       Printf("proc %d recvd %d ticks\n", i, counts[i]);
-    if (counts[i] >= 1) {
+    if (i > 1 && counts[i] >= 1)
       numRecvd++;
-    }
   }
 
   if (numprocs >= 6 && numRecvd < 5) {
