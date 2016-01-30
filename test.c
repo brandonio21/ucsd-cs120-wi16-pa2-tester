@@ -457,6 +457,67 @@ int test_proportional_split_amongst_procs(int numprocs) {
   return failCounter;
 }
 
+/*
+ * A test case to ensure one process flooding with requests doesn't allow it
+ * to hog all CPU.
+ */
+int test_proportional_reqhog(int numprocs) {
+  int failCounter = 0;
+  SetSchedPolicy(PROPORTIONAL);
+  InitSched();
+  int i, iter;
+  int counts[numprocs+1];
+  int unallocCount = 0;
+
+  if (verbose)
+    Printf("start PROPORTIONALREQHOG with %d procs\n", numprocs);
+
+  for (i = 1; i <= numprocs; i++) {
+    StartingProc(i);
+    counts[i] = 0;
+  }
+
+  for (iter = 0; iter < 500; iter++) {
+    if (MyRequestCPUrate(1, 90) == -1) {
+      Printf("PROPORTIONALREQHOG ERR: MyRequestCPUrate returned -1 when CPU was available\n");
+      failCounter++;
+    }
+
+    counts[get_next_sched()]++;
+  }
+
+  if (!inSlackRange(450, counts[1])) {
+    Printf("PROPORTIONALREQHOG ERR: Process 1 should have received at least %d CPU ticks but got %d\n",
+           (int) (450 * 0.9), counts[1]);
+    failCounter++;
+  }
+
+  for (i = 1; i <= numprocs; i++) {
+    if (verbose)
+      Printf("proc %d recvd %d ticks\n", i, counts[i]);
+    if (i > 1)
+      unallocCount += counts[i];
+  }
+
+  if (numprocs > 1 && !inSlackRange(50, unallocCount)) {
+    Printf("PROPORTIONALREQHOG ERR: Processes which allocated no CPU should "
+        "have received at least %d CPU ticks total but got %d\n",
+           (int) (50 * 0.9), unallocCount);
+    failCounter++;
+  }
+
+  for (i = 1; i <= numprocs; i++)
+    EndingProc(i);
+
+  if (get_next_sched()) {
+    Printf("PROPORTIONALREQHOG ERR: Not all processes have exited\n");
+    failCounter++;
+  }
+
+  totalFailCounter += failCounter;
+  return failCounter;
+}
+
 int test(int (*testerFunction) (int)) {
   int i, failures;
   failures = 0;
@@ -491,6 +552,7 @@ void Main(int argc, char** argv) {
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
   Printf("%d proportionalSPLIT failures\n",
       test(&test_proportional_split_amongst_procs));
+  Printf("%d proportionalREQHOG failures\n", test(&test_proportional_reqhog));
 
   if(should_run_havoc){
     int havoc_fails = test_havoc();
