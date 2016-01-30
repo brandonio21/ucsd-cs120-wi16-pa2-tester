@@ -573,6 +573,24 @@ void Main(int argc, char** argv) {
 
     // old default
     havoc_fails += test_havoc(1000000, 1100, 1000, 50000, 500);
+
+    // do a lot of stressful things
+    havoc_fails += test_havoc(1000000, 0, 0, 0, 0);
+    havoc_fails += test_havoc(1000000, 0, 0, 0, 1);
+    havoc_fails += test_havoc(1000000, 0, 0, 1, 0);
+    havoc_fails += test_havoc(1000000, 0, 0, 1, 1);
+    havoc_fails += test_havoc(1000000, 0, 1, 0, 0);
+    havoc_fails += test_havoc(1000000, 0, 1, 0, 1);
+    havoc_fails += test_havoc(1000000, 0, 1, 1, 0);
+    havoc_fails += test_havoc(1000000, 0, 1, 1, 1);
+    havoc_fails += test_havoc(1000000, 1, 0, 0, 0);
+    havoc_fails += test_havoc(1000000, 1, 0, 0, 1);
+    havoc_fails += test_havoc(1000000, 1, 0, 1, 0);
+    havoc_fails += test_havoc(1000000, 1, 0, 1, 1);
+    havoc_fails += test_havoc(1000000, 1, 1, 0, 0);
+    havoc_fails += test_havoc(1000000, 1, 1, 0, 1);
+    havoc_fails += test_havoc(1000000, 1, 1, 1, 0);
+    havoc_fails += test_havoc(1000000, 1, 1, 1, 1);
     
     totalFailCounter += havoc_fails;
     Printf("%d havoc failures\n", havoc_fails);
