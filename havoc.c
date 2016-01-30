@@ -11,7 +11,7 @@ static struct{
 
 static int t = 0;
 static int active_procs = 0;
-static int last_event = 0;
+static int last_start = 0;
 static int remaining_allocation = 100;
 static int errors = 0;
 
@@ -70,26 +70,24 @@ static int get_random_inactive(){
   return 0;
 }
 
-static void update_last_event(int pid) {
-  last_event = t;
-  if(processes[pid].request) return;
+// start a process with pid pid; return 0 on success
+static int start_process(int pid){
+  assert_critical(StartingProc(pid), "StartingProc failed");
+  info("Started new process %d", pid);
+
+  active_procs++;
+  processes[pid].active = 1;
+  processes[pid].request = 0;
+  processes[pid].start_tick = t;
+
+  last_start = t;
+  
   for(pid = 1; pid <= MAXPROCS; pid++){
     if(!processes[pid].request) {
       processes[pid].tick_count = 0;
     }
   }
-}
-
-// start a process with pid pid; return 0 on success
-static int start_process(int pid){
-  assert_critical(StartingProc(pid), "StartingProc failed");
-  active_procs++;
-  processes[pid].active = 1;
-  processes[pid].start_tick = t;
-  processes[pid].tick_count = 0;
-
-  update_last_event(pid);
-  info("Started new process %d", pid);
+    
   return 0;
 }
 
@@ -101,76 +99,80 @@ static int end_process(int pid){
   active_procs--;
   processes[pid].active = 0;
   processes[pid].request = 0;
-  update_last_event(pid);
   
   info("Ended process %d after %d ticks", pid, t - processes[pid].start_tick);
   return 0;
 }
 
-int test_havoc(){
-  int last_event = 0;
-  int totals[MAXPROCS+1];
+static int change_request(int pid, int n){
+  assert_critical(MyRequestCPUrate(pid, n) == 0,
+		  "Failed to accept valid request of %d for process %d",
+		  n, pid);
 
+  remaining_allocation += processes[pid].request - n;
+  info("Process %2d changing allocation: %3d -> %3d, new total allocation: %3d%%",
+       pid, processes[pid].request, n, 100 - remaining_allocation);
+    
+  processes[pid].request = n;
+    
+  // We reset the start of a process when we make a new rate request
+  processes[pid].start_tick = t;
+  processes[pid].tick_count = 0;
+    
+  last_start = t;
+}
+
+int test_havoc(int length, int p_start, int p_end, int p_storm, int p_request){
+  printf("Starting havoc test for %d ticks - inverse probabilities:\n"
+	 "    start: %d\n"
+	 "      end: %d\n"
+	 "    storm: %d\n"
+	 "  request: %d\n",
+	 length, p_start, p_end, p_storm, p_request);
+  last_start = active_procs = errors = 0; 
+  remaining_allocation = 100;
+  
   SetSchedPolicy(PROPORTIONAL);
   InitSched();
 
   memset(processes, 0, sizeof(processes));
 
-  for(t = 0; t < 1000000; t++) {
+  for(t = 0; t < length; t++) {
     // Start a new process?
-    if(active_procs < MAXPROCS && !(rand() % 1100)) {
-      if(start_process(get_random_inactive())) return ++errors;
-    }
-
-    // Start as many new processes as possible?
-    if(!(rand() % 50000)) {
-      while(active_procs < MAXPROCS) {
-        if(start_process(get_random_inactive())) return ++errors;
-      }
-    }
+    if(p_start && active_procs < MAXPROCS && !(rand() % p_start)) {
+      start_process(get_random_inactive());
+    } else
 
     // End a random process?
-    if(active_procs && !(rand() % 1000)) {
-      if(end_process(get_random_active())) return ++errors;
-    }
+    if(p_end && active_procs && !(rand() % p_end)) {
+      end_process(get_random_active());
+    } else
 
+    // Start as many new processes as possible?
+    if(p_storm && !(rand() % p_storm)) {
+      while(active_procs < MAXPROCS) start_process(get_random_inactive());
+    } else
+    
     // Change the priority of a random process?
-    if(active_procs && !(rand() % 500)) {
+    if(p_request && active_procs && !(rand() % p_request)) {
       int pid = get_random_active();
       int max_allocation = remaining_allocation + processes[pid].request;
-
+      
       assert_critical(MyRequestCPUrate(pid, max_allocation + 1) == -1,
-		   "Failed to reject overallocation request of %d for process %d",
-		   max_allocation + 1, pid);
-
+		      "Failed to reject overallocation request of %d for process %d",
+		      max_allocation + 1, pid);
+      
       if(max_allocation) {
-        int new_allocation = 1 + rand() % max_allocation;
-
-        // Half the time, try to allocate the maximum available first
-        if(!(rand() % 2))
+	
+	int new_allocation = 1 + rand() % max_allocation;
+	
+	// Half the time, try to allocate the maximum available first
+	if(!(rand() % 2))
 	  assert_critical(MyRequestCPUrate(pid, max_allocation) == 0,
-		       "Failed to accept valid request of %d for process %d; "
-		       "should have been able to request up to %d",
-		       max_allocation, pid, max_allocation);
-
-
-        assert_critical(MyRequestCPUrate(pid, new_allocation) == 0,
-		     "Failed to accept valid request of %d for process %d; "
-		     "should have been able to request up to %d",
-		     new_allocation, pid, max_allocation);
-
-
-        remaining_allocation += processes[pid].request - new_allocation;
-	info("Process %2d changing allocation: %3d -> %3d, new total allocation: %3d%%",
-	     pid, processes[pid].request, new_allocation, 100 - remaining_allocation);
-
-	processes[pid].request = new_allocation;
-        
-        // We reset the start of a process when we make a new rate request
-        processes[pid].start_tick = t;
-	processes[pid].tick_count = 0;
-
-	update_last_event(pid);
+			  "Failed to accept valid request of %d for process %d; "
+			  "should have been able to request up to %d",
+			  max_allocation, pid, max_allocation);
+	change_request(pid, new_allocation);
       }
     }
 
@@ -184,6 +186,7 @@ int test_havoc(){
       if(!processes[i].request && processes[i].active){
 	leftover_count++;
 	int count = processes[i].tick_count;
+
 	if(count < leftover_min) {
 	  leftover_min = count;
 	  min_leftover = i;
@@ -199,7 +202,7 @@ int test_havoc(){
     // If there were extra ticks, and it's been at least 100 ticks
     // since the last event, we expect to see at least one leftover
     // process run in that time
-    /*if(remaining_allocation && (t - last_event >= MAXPROCS*100) && leftover_count && !leftover_max){
+    /*if(remaining_allocation && (t - last_start >= MAXPROCS*100) && leftover_count && !leftover_max){
       Printf("HAVOC ERR: %d Expected a leftover process to run in the last %d ticks\n", t, MAXPROCS*100);
       }*/
 	
@@ -210,7 +213,7 @@ int test_havoc(){
     assert(!leftover_count || leftover_max - leftover_min <= 1,
 	   "Leftover processes %d and %d were not scheduled equally "
 	   "(received %d and %d ticks respectively out of %d)",
-	   min_leftover, max_leftover, leftover_min, leftover_max, t - last_event);
+	   min_leftover, max_leftover, leftover_min, leftover_max, t - last_start);
     
     for(int i = 1; i <= MAXPROCS; i++){
       if(!processes[i].active) continue;
