@@ -393,6 +393,70 @@ int test_proportional_huge(int numprocs) {
   return failCounter;
 }
 
+
+/*
+ * A simple test case to ensure that any processes with no CPU allocation 
+ * don't take too much CPU, even if there is less than 1% to go around. Also 
+ * ensures that 1% is appropriately split among processes with no CPU 
+ * allocation.
+ */
+int test_proportional_split_amongst_procs(int numprocs) {
+  int failCounter = 0;
+  SetSchedPolicy(PROPORTIONAL);
+  InitSched();
+  int i, iter;
+  int counts[numprocs+1];
+  int numRecvd = 0;
+
+  if (verbose)
+    Printf("start PROPORTIONALSPLIT with %d procs\n", numprocs);
+
+  for (i = 1; i <= numprocs; i++) {
+    StartingProc(i);
+    counts[i] = 0;
+  }
+
+  if (MyRequestCPUrate(1, 99) == -1) {
+    Printf("PROPORTIONALSPLIT ERR: MyRequestCPUrate returned -1 when CPU was available\n");
+    failCounter++;
+  }
+
+  for (iter = 0; iter < 500; iter++) {
+    counts[get_next_sched()]++;
+  }
+
+  if (!inSlackRange(495, counts[1])) {
+    Printf("PROPORTIONALSPLIT ERR: Process 1 should have received at least %d CPU ticks but got %d\n",
+           (int) (495 * 0.9), counts[1]);
+    failCounter++;
+  }
+
+  for (i = 1; i <= numprocs; i++) {
+    if (verbose)
+      Printf("proc %d recvd %d ticks\n", i, counts[i]);
+    if (i > 1 && counts[i] >= 1)
+      numRecvd++;
+  }
+
+  if (numprocs >= 6 && numRecvd < 5) {
+    Printf("PROPORTIONALSPLIT ERR:" 
+        " At >5 procs should have received a cpu tick"
+        " since process 1 requested 99%%\n");
+    failCounter++;
+  }
+
+  for (i = 1; i <= numprocs; i++)
+    EndingProc(i);
+
+  if (get_next_sched()) {
+    Printf("PROPORTIONALSPLIT ERR: Not all processes have exited\n");
+    failCounter++;
+  }
+
+  totalFailCounter += failCounter;
+  return failCounter;
+}
+
 int test(int (*testerFunction) (int)) {
   int i, failures;
   failures = 0;
@@ -425,6 +489,8 @@ void Main(int argc, char** argv) {
   Printf("%d proportional failures\n", test(&test_proportional_normal));
   Printf("%d proportional2 failures\n", test(&test_proportional_hog));
   Printf("%d proportional3 failures\n", test(&test_proportional_huge));
+  Printf("%d proportionalSPLIT failures\n",
+      test(&test_proportional_split_amongst_procs));
 
   if(should_run_havoc){
     int havoc_fails = test_havoc();
