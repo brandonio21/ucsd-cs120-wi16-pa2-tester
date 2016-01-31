@@ -213,7 +213,7 @@ int test_rr_middle_exit() {
         twiceProcessRan = 1;
     }
     else if (counts[i] != 1) {
-      Printf("ROUND ROBIN2 ERR: Process %d got %d but expected 1\n", i);
+      Printf("ROUND ROBIN2 ERR: Process %d got %d but expected 1\n", i, count[i]);
       failCounter++;
     }
   }
@@ -251,7 +251,7 @@ int test_proportional_normal(int numprocs) {
              proportions[i]);
     }
   }
-  
+
   for (i = 0; i < 100; i++) {
     counts[get_next_sched()]++;
   }
@@ -383,7 +383,7 @@ int test_proportional_huge(int numprocs) {
 
   for (i = 1; i <= numprocs; i++)
     EndingProc(i);
-  
+
   if (get_next_sched()) {
     Printf("PROPORTIONAL3 ERR: Not all processes have exited\n");
     failCounter++;
@@ -394,9 +394,9 @@ int test_proportional_huge(int numprocs) {
 }
 
 /*
- * A simple test case to ensure that any processes with no CPU allocation 
- * don't take too much CPU, even if there is less than 1% to go around. Also 
- * ensures that 1% is appropriately split among processes with no CPU 
+ * A simple test case to ensure that any processes with no CPU allocation
+ * don't take too much CPU, even if there is less than 1% to go around. Also
+ * ensures that 1% is appropriately split among processes with no CPU
  * allocation.
  */
 int test_proportional_split_amongst_procs(int numprocs) {
@@ -438,7 +438,7 @@ int test_proportional_split_amongst_procs(int numprocs) {
   }
 
   if (numprocs >= 6 && numRecvd < 5) {
-    Printf("PROPORTIONALSPLIT ERR:" 
+    Printf("PROPORTIONALSPLIT ERR:"
         " At >5 procs should have received a cpu tick"
         " since process 1 requested 99%%\n");
     failCounter++;
@@ -559,21 +559,21 @@ void Main(int argc, char** argv) {
     //              |     |  |   +------- 1/P(process storm?)
     //              |     |  |   |   +--- 1/P(request new priority?)
     // test_havoc(100000, 4, 4, 500, 0);
-    
+
     // stress implementation of equal distribution
     havoc_fails += test_havoc(1000000, 10, 10, 500, 0);
 
     // stress choice of new pass value
     havoc_fails += test_havoc(1000000, 4, 4, 500, 4);
     havoc_fails += test_havoc(1000000, 0, 5, 100, 10);
-    
+
     // test stability over a long period
     havoc_fails += test_havoc(100000, 0, 0, 2, 0);
     havoc_fails += test_havoc(100000, 0, 0, 2, 10000);
 
     // old default
     havoc_fails += test_havoc(1000000, 1100, 1000, 50000, 500);
-    
+
     totalFailCounter += havoc_fails;
     Printf("%d havoc failures\n", havoc_fails);
   }
