@@ -213,7 +213,7 @@ int test_rr_middle_exit() {
         twiceProcessRan = 1;
     }
     else if (counts[i] != 1) {
-      Printf("ROUND ROBIN2 ERR: Process %d got %d but expected 1\n", i, count[i]);
+      Printf("ROUND ROBIN2 ERR: Process %d got %d but expected 1\n", i, counts[i]);
       failCounter++;
     }
   }
