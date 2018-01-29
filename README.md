@@ -5,9 +5,10 @@ A collection of tests for Pasquale's CSE120 PA2 at UCSD
 Installation
 ------------
 1. Ensure that your PA directory is `~/pa2`
-2. `git clone https://github.com/brandonio21/ucsd-cs120-wi16-pa2-tester`
-3. `sh ucsd-cs120-wi16-pa-tester/install.sh`
-4. `make test`
+2. `cd ~/pa2`
+3. `git clone https://github.com/brandonio21/ucsd-cs120-wi16-pa2-tester`
+4. `sh ucsd-cs120-wi16-pa-tester/install.sh`
+5. `make test`
 
 Running
 -------
