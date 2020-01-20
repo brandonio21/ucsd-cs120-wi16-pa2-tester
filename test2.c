@@ -85,11 +85,6 @@ int test_fifo_normal(int numprocs) {
         }
         EndingProc(proc);
     }
-    /* check if all process are exited */
-    if (get_next_sched()) {
-        Printf("FIFO ERR: Not all processes have exited\n");
-        failCounter++;
-    }
 
     totalFailCounter += failCounter;
     return failCounter;
@@ -121,33 +116,11 @@ int test_lifo_normal(int numprocs) {
         failCounter++;
     }
 
-    //Now do again
-
-    for (proc = numprocs; proc > 0; proc--) {
-        StartingProc(proc);
-    }
-
-    for (proc = 1; proc <=numprocs; proc++) {
-        int next = get_next_sched();
-        if (next != proc) {
-            Printf("LIFO ERR: Received process %d but expected %d\n", next, proc);
-            failCounter++;
-        }
-        EndingProc(proc);
-    }
-
-    /* check if all process are exited */
-    if (get_next_sched()) {
-        Printf("LIFO ERR: Not all processes have exited\n");
-        failCounter++;
-    }
-
     totalFailCounter += failCounter;
     return failCounter;
 }
 
 int test_rr_normal(int numprocs) {
-
     int failCounter = 0;
     SetSchedPolicy(ROUNDROBIN);
     InitSched();
@@ -157,7 +130,6 @@ int test_rr_normal(int numprocs) {
     }
 
     int* decisions = calloc(numprocs, 4);
-    int decision=0;
 
     for(int t = 0; t < numprocs * 5; t++) {
 
@@ -179,10 +151,8 @@ int test_rr_normal(int numprocs) {
 
             free(counts);
         }
-        decision= get_next_sched();
-        if(decision==0)
-            Printf("ROUND ROBIN ERR: get_next_sched return 0 while still got processes to run!\n");
-        decisions[t % numprocs]=decision;
+
+        decisions[t % numprocs] = get_next_sched();
     }
 
     free(decisions);
@@ -196,53 +166,6 @@ int test_rr_normal(int numprocs) {
     /* check if all process are exited */
     if (get_next_sched()) {
         Printf("ROUND ROBIN ERR: Not all processes have exited\n");
-        failCounter++;
-    }
-
-    //now do again
-    for (int i = numprocs; i >0; i--) {
-        int suc=StartingProc(i);
-        if(!suc)
-            Printf("ROUND ROBIN ERR: Fail to start process %d in second round!\n",i);
-    }
-
-    decisions = calloc(numprocs, 4);
-
-    for(int t = 0; t < numprocs * 5; t++) {
-        // have we made at least numprocs decisions yet?
-        if(t >= numprocs){
-            int* counts = calloc(numprocs + 1, 4);
-            for(int i = 0; i < numprocs; i++) {
-                counts[decisions[i]]++;
-            }
-
-            for(int i = 1; i < numprocs; i++) {
-                if(counts[i] != 1){
-                    Printf("ROUND ROBIN ERR: Process %d received %d ticks in one round, expecting 1  in second round!\\n",
-                           i, counts[i]);
-                    failCounter++;
-                }
-            }
-            free(counts);
-        }
-
-        decision= get_next_sched();
-        if(decision==0)
-            Printf("ROUND ROBIN ERR: get_next_sched return 0 while still got processes to run! in second round!\\n");
-        decisions[t % numprocs]=decision;
-    }
-
-    free(decisions);
-
-    for (int i = 1; i <= numprocs; i++) {
-        int suc=EndingProc(i);
-        if(!suc)
-            Printf("ROUND ROBIN ERR: Process %d fail to exit! in second round!\\n",i);
-    }
-
-    /* check if all process are exited */
-    if (get_next_sched()) {
-        Printf("ROUND ROBIN ERR: Not all processes have exited in second round!\\n");
         failCounter++;
     }
 
@@ -367,45 +290,6 @@ int test_proportional_normal(int numprocs) {
     /* check if all process are exited */
     if (get_next_sched()) {
         Printf("PROPORTIONAL ERR: Not all processes have exited\n");
-        failCounter++;
-    }
-
-
-    for (i = 1; i <= numprocs; i++) {
-        int suc=StartingProc(i);
-        if(!suc)
-            Printf("PROPORTIONAL ERR: Process:%d fail to start proc! in second round\n", i);
-        proportions[i] = (rand() % (100 / numprocs)) + 1;
-        counts[i] = 0;
-    }
-
-    for (i = 1; i <= numprocs; i++) {
-        if (MyRequestCPUrate(i, proportions[i]) == -1) {
-            failCounter++;
-            Printf("PROPORTIONAL ERR: Process:%d requested %d%% CPU and MyRequestCPUrate wrongly returned -1  in second round\n",
-                   i,proportions[i]);
-        }
-    }
-
-    for (i = 0; i < 100; i++) {
-        counts[get_next_sched()]++;
-    }
-
-    for (i = 1; i <= numprocs; i++) {
-        if (!inSlackRange(proportions[i], counts[i]) &&
-            counts[i] < proportions[i]) {
-            Printf("PROPORTIONAL ERR: %d requested %d%% but received %d  in second round\n", i,
-                   proportions[i], counts[i]);
-            failCounter++;
-        }
-    }
-
-    for (i = 1; i <= numprocs; i++)
-        EndingProc(i);
-
-    /* check if all process are exited */
-    if (get_next_sched()) {
-        Printf("PROPORTIONAL ERR: Not all processes have exited  in second round\n");
         failCounter++;
     }
 

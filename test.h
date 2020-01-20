@@ -1,4 +1,4 @@
-#include "mykernel2.h"
+#include "mycode2.h"
 #include "aux.h"
 #include "sys.h"
 #include <time.h>
@@ -8,6 +8,8 @@
 #ifndef SLACK
 #define SLACK 1
 #endif
+
+#define LOGIC_IN_HANDLETIMERINTR 1
 
 #ifndef LOGIC_IN_HANDLETIMERINTR
 #define LOGIC_IN_HANDLETIMERINTR 0
