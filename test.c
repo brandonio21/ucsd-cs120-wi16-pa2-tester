@@ -830,4 +830,3 @@ void Main(int argc, char **argv)
   if (totalFailCounter == 0)
     Printf("ALL TESTS PASSED!");
 }
-* /
