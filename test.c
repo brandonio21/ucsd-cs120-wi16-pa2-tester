@@ -476,7 +476,7 @@ int test_proportional_reqhog(int numprocs) {
     counts[i] = 0;
   }
 
-   for (iter = 0; iter < 500; iter++) {
+  for (iter = 0; iter < 500; iter++) {
     if (MyRequestCPUrate(1, 90) == -1) {
       Printf("PROPORTIONALREQHOG ERR: MyRequestCPUrate returned -1 when CPU was available\n");
       failCounter++;
